@@ -199,6 +199,7 @@ window.addEventListener('load', () => {
     ImageResource.load('./assets/originals/03.png'),
     ImageResource.load('./assets/originals/04.png'),
     ImageResource.load('./assets/alpha_maps/grass.png'),
+    ImageResource.load('./assets/alpha_maps/grass_extra.png'),
   ]).then((images: ImageResource[]) => {
     let autoTilesCanvas = Canvas.fromImageResource(images[0]);
     let tilesCanvas = Canvas.fromImageResource(images[1]);
@@ -215,7 +216,7 @@ window.addEventListener('load', () => {
 
     let imageData = buildAlphaMapHelper(rock_64.getImageData(), grass_64.getImageData(), autoTile.getImageData());
 
-    autoTile.append(document.body);
+
     grass_64.append(document.body);
     rock_64.append(document.body);
 
@@ -223,9 +224,23 @@ window.addEventListener('load', () => {
       //window.open(image.src, '_blank');
     });
 
+    let size = 64;
 
-    imageData = Canvas.alphaMap(grass_64.getImageData(), Canvas.fromImageResource(images[4]).getImageData());
-    new Canvas(64, 64).add(rock_64).add(Canvas.fromImageData(imageData)).resize(256, 256, 'pixelated').append(document.body);
+    autoTile.resize(size, size, 'pixelated').append(document.body);
+    let shadow = Canvas.opacity(Canvas.fromImageResource(images[5]).getImageData(), 0.5);
+    let top = Canvas.alphaMap(grass_64.getImageData(), Canvas.fromImageResource(images[4]).getImageData());
+
+    new Canvas(64, 64)
+      .add(rock_64)
+      .add(Canvas.fromImageData(shadow))
+      .add(Canvas.fromImageData(top))
+      .resize(size, size, 'pixelated').append(document.body);
+
+    new Canvas(64, 64)
+      .add(rock_64)
+      // .add(Canvas.fromImageResource(images[5]))
+      .add(Canvas.fromImageData(top))
+      .resize(size, size, 'pixelated').append(document.body);
 
   });
 

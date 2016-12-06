@@ -94,6 +94,13 @@ export class Canvas {
     return imageData;
   }
 
+  static opacity(imageData: ImageData, multiplier: number): ImageData {
+    for(let i = 0; i < imageData.data.length; i += 4) {
+      imageData.data[i + 3] = Math.max(0, Math.min(255, Math.round(imageData.data[i + 3] * multiplier)));
+    }
+    return imageData;
+  }
+
 
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -133,17 +140,11 @@ export class Canvas {
     switch(imageRendering) {
       case ImageRendering.AUTO:
       case ImageRendering.SMOOTH:
-        this.ctx.mozImageSmoothingEnabled = true;
-        this.ctx.webkitImageSmoothingEnabled = true;
-        this.ctx.msImageSmoothingEnabled = true;
-        (<any>this.ctx).imageSmoothingEnabled = true;
+       this.imageSmoothingEnabled = true;
         break;
       case ImageRendering.PIXELATED:
       case ImageRendering.CRISP_EDGES:
-        this.ctx.mozImageSmoothingEnabled = false;
-        this.ctx.webkitImageSmoothingEnabled = false;
-        this.ctx.msImageSmoothingEnabled = false;
-        (<any>this.ctx).imageSmoothingEnabled = false;
+        this.imageSmoothingEnabled = false;
         break;
     }
 
@@ -173,6 +174,17 @@ export class Canvas {
     return canvas;
   }
 
+  clear(): this {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    return this;
+  }
+
+  fill(color: string): this {
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    return this;
+  }
+
   get width(): number {
     return this.canvas.width;
   }
@@ -187,5 +199,31 @@ export class Canvas {
 
   set height(height: number) {
     this.canvas.height = height;
+  }
+
+  set imageSmoothingEnabled(enable: boolean) {
+    if(typeof ((<any>this.ctx).imageSmoothingEnabled) !== 'undefined') {
+      (<any>this.ctx).imageSmoothingEnabled = enable;
+    } else if(typeof this.ctx.mozImageSmoothingEnabled !== 'undefined') {
+      this.ctx.mozImageSmoothingEnabled = enable;
+    } else if(typeof this.ctx.webkitImageSmoothingEnabled !== 'undefined') {
+      this.ctx.webkitImageSmoothingEnabled = enable;
+    } else if(typeof this.ctx.msImageSmoothingEnabled !== 'undefined') {
+      this.ctx.msImageSmoothingEnabled = enable;
+    }
+  }
+
+  get imageSmoothingEnabled(): boolean {
+    if(typeof ((<any>this.ctx).imageSmoothingEnabled) !== 'undefined') {
+      return (<any>this.ctx).imageSmoothingEnabled;
+    } else if(typeof this.ctx.mozImageSmoothingEnabled !== 'undefined') {
+      return this.ctx.mozImageSmoothingEnabled;
+    } else if(typeof this.ctx.webkitImageSmoothingEnabled !== 'undefined') {
+      return this.ctx.webkitImageSmoothingEnabled;
+    } else if(typeof this.ctx.msImageSmoothingEnabled !== 'undefined') {
+      return this.ctx.msImageSmoothingEnabled;
+    } else {
+      return true;
+    }
   }
 }
