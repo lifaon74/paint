@@ -1,4 +1,4 @@
-import { ImageResource } from 'image-resource';
+import { ImageResource } from './resources/imageResource.class';
 
 export class ImageRendering {
   static AUTO         = 'auto';
@@ -20,7 +20,7 @@ export class Canvas {
     let canvas = new Canvas(width, height);
 
     canvas.ctx.drawImage(
-      image.image,
+      image.resource,
       0, 0, image.naturalWidth, image.naturalHeight,
       0, 0, width, height
     );
@@ -124,6 +124,12 @@ export class Canvas {
 
   toImageResource(): Promise<ImageResource> {
     return ImageResource.load(this.canvas.toDataURL());
+  }
+
+  toImageResourceSync(): ImageResource {
+    let image = new ImageResource();
+    image.src = this.canvas.toDataURL();
+    return image;
   }
 
   getImageData(x: number = 0, y: number = 0, width: number = this.canvas.width, height: number = this.canvas.height): ImageData {
