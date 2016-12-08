@@ -3,22 +3,24 @@ export abstract class AsyncResource {
 
   abstract resource: (HTMLImageElement|HTMLAudioElement);
 
-  load(source: string): Promise<AsyncResource> {
+  load(source: string, onLoadEventName: string = 'load'): Promise<AsyncResource> {
     return new Promise((resolve: any, reject: any) => {
-      let onload = () => {
-        this.removeEventListener('load', onload);
+      this.addEventListenerOnce(onLoadEventName, () => {
         resolve(this);
-      };
-
-      let onerror = () => {
-        this.removeEventListener('error', onerror);
-        reject(new Error('Invalid image  path ' + source));
-      };
-
-      this.addEventListener('load', onload);
-      this.addEventListener('error', onerror);
+      });
+      this.addEventListenerOnce('error', () => {
+        reject(new Error('Invalid resource path ' + source));
+      });
       this.src = source;
     });
+  }
+
+  addEventListenerOnce(type: string, listener: any, useCapture?: boolean): void {
+    let cb = (event: Event) => {
+      this.removeEventListener(type, cb, useCapture);
+      listener(event);
+    };
+    this.addEventListener(type, cb, useCapture);
   }
 
   addEventListener(type: string, listener: any, useCapture?: boolean): void {
