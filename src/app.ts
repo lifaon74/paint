@@ -82,32 +82,8 @@ export class Renderer {
     });
   }
 
-  static buildAutoTile(canvas: Canvas, x: number, y: number): Canvas {
-    x *= 64;
-    y *= 96;
-
-    let result = canvas.cut(x, y + 32, 64, 64);
-
-    result.add(canvas.cut(x + 32, y, 16, 16), 32, 32);
-    result.add(canvas.cut(x + 32 + 16, y, 16, 16), 16, 32);
-    result.add(canvas.cut(x + 32, y + 16, 16, 16), 32, 16);
-    result.add(canvas.cut(x + 32 + 16, y + 16, 16, 16), 16, 16);
-
-    return result;
-  };
-
-
-
-  public canvas: Canvas;
-
   constructor() {
-    this.canvas = new Canvas(1, 1);
   }
-
-  append(element: Element) {
-    this.canvas.append(element);
-  }
-
 }
 
 export class ImagePart {
@@ -115,8 +91,7 @@ export class ImagePart {
     public image: ImageResource,
     public sx: number,
     public sy: number
-  ) {
-  }
+  ) {}
 }
 
 
@@ -141,7 +116,180 @@ export class Tile extends ImagePart {
   }
 }
 
+
 export class AutoTile extends ImagePart {
+  static width: number  = Tile.width / 2;
+  static height: number = Tile.height / 2;
+  static sections: number = 20;
+
+  static templateToAutoTileIndexes: number[] = [
+     3,  5,  1,  7,
+    10, 12,  8, 14,
+     2,  4,  0,  6,
+    11, 13,  9, 15
+  ];
+
+  static templateInvertedToAutoTileIndexes: number[] = [
+    12,  9, 13,  8,
+     6,  3,  7,  2,
+    14, 11, 15, 10,
+     4,  1,  5,  0
+  ];
+
+
+  static autoTileToTemplateIndexes: number[] =
+    AutoTile.templateToAutoTileIndexes.map((value: number, index: number) => AutoTile.templateToAutoTileIndexes.indexOf(index));
+
+  static autoTileToTemplateInvertedIndexes: number[] =
+    AutoTile.templateInvertedToAutoTileIndexes.map((value: number, index: number) => AutoTile.templateInvertedToAutoTileIndexes.indexOf(index));
+
+
+  static fromTemplate(tile: Tile, template: ImagePart): AutoTile {
+    let canvas = new Canvas(AutoTile.width * AutoTile.sections, AutoTile.height);
+
+    for(let y = 0; y < 4; y++) {
+      for(let x = 0; x < 4; x++) {
+        canvas.ctx.drawImage(
+          template.image.resource,
+          template.sx + x * AutoTile.width, template.sy + y * AutoTile.height, AutoTile.width, AutoTile.height,
+          Math.floor(AutoTile.templateToAutoTileIndexes[x + y * 4] * 1.25) * AutoTile.width, 0, AutoTile.width, AutoTile.height
+        );
+      }
+    }
+
+    for(let i = 0; i < 4; i++) {
+      canvas.ctx.drawImage(
+        tile.image.resource,
+        tile.sx + (i % 2) * AutoTile.width, tile.sy + Math.floor(i / 2) * AutoTile.height, AutoTile.width, AutoTile.height,
+        (i * 5 + 4) * AutoTile.width, 0, AutoTile.width, AutoTile.height
+      );
+    }
+
+    return new AutoTile(canvas.toImageResourceSync(), 0, 0);
+  }
+
+  constructor(
+    image: ImageResource,
+    sx: number,
+    sy: number
+  ) {
+    super(image, sx, sy);
+  }
+
+  draw(ctx: CanvasRenderingContext2D, index: number, dx: number, dy: number) {
+    ctx.drawImage(
+      this.image.resource,
+      this.sx + index * AutoTile.width, this.sy, AutoTile.width, AutoTile.height,
+      dx *  AutoTile.width, dy * AutoTile.height, AutoTile.width, AutoTile.height
+    );
+  }
+
+  toTemplate(inverted: boolean = false): ImageResource {
+    let canvas: Canvas = new Canvas(64, 64);
+    for(let i = 0; i < 16; i++) {
+      let j = inverted ? AutoTile.autoTileToTemplateInvertedIndexes[i] : AutoTile.autoTileToTemplateIndexes[i];
+      canvas.ctx.drawImage(
+        this.image.resource,
+        this.sx + Math.floor(i * 1.25) * AutoTile.width, this.sy, AutoTile.width, AutoTile.height,
+        (j % 4) * AutoTile.width, Math.floor(j / 4) * AutoTile.height, AutoTile.width, AutoTile.height
+      );
+    }
+    return canvas.toImageResourceSync();
+  }
+
+}
+
+
+export class AutoTileHelper {
+
+  private static canvas: Canvas = new Canvas(64, 64);
+
+  static extractAutoTileTemplate(imagePart: ImagePart): ImageResource {
+    let canvas: Canvas = AutoTileHelper.canvas;
+    canvas.resize(64, 64);
+    canvas.clear();
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx, imagePart.sy + 32, 64, 64,
+      0, 0, 64, 64
+    );
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx + 32, imagePart.sy, 16, 16,
+      32, 32, 16, 16
+    );
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx + 48, imagePart.sy, 16, 16,
+      16, 32, 16, 16
+    );
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx + 32, imagePart.sy + 16, 16, 16,
+      32, 16, 16, 16
+    );
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx + 48, imagePart.sy + 16, 16, 16,
+      16, 16, 16, 16
+    );
+
+    return canvas.toImageResourceSync();
+  }
+
+  static shadesOfGreyToAlphaMap(imagePart: ImagePart): ImageResource {
+    let canvas: Canvas = AutoTileHelper.canvas;
+    canvas.resize(64, 64);
+    canvas.clear();
+
+    canvas.ctx.drawImage(
+      imagePart.image.resource,
+      imagePart.sx, imagePart.sy, 64, 64,
+      0, 0, 64, 64
+    );
+
+    let imageData: ImageData = canvas.getImageData(0, 0, 64, 64);
+    for(let i = 0; i < imageData.data.length; i += 4) {
+      imageData.data[i + 3] = (imageData.data[i + 0] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
+      imageData.data[i + 0] = 0;
+      imageData.data[i + 1] = 0;
+      imageData.data[i + 2] = 0;
+    }
+    return canvas.putImageData(imageData).toImageResourceSync();
+  }
+
+  static generateAutoTileFromJunctionTemplates(tile: Tile, alphaMap: ImagePart, underLayer: ImagePart): AutoTile {
+    let canvas: Canvas = AutoTileHelper.canvas;
+    canvas.resize(64, 64);
+    canvas.clear();
+
+    tile.draw(canvas.ctx, 0, 0);
+    tile.draw(canvas.ctx, 1, 0);
+    tile.draw(canvas.ctx, 0, 1);
+    tile.draw(canvas.ctx, 1, 1);
+
+    canvas.ctx.globalCompositeOperation = 'destination-in';
+    canvas.ctx.drawImage(alphaMap.image.resource, 0, 0);
+    canvas.ctx.globalCompositeOperation = 'destination-over';
+    canvas.ctx.drawImage(underLayer.image.resource, 0, 0);
+    canvas.ctx.globalCompositeOperation = 'source-over';
+
+    return AutoTile.fromTemplate(tile, new ImagePart(canvas.toImageResourceSync(), 0, 0));
+  }
+
+}
+
+
+
+/***
+ * OLD
+ */
+export class AutoTileOld extends ImagePart {
   static width: number  = Tile.width * 2;
   static height: number = Tile.height * 2;
   static partWidth: number  = AutoTile.width / 4;
@@ -169,8 +317,8 @@ export class AutoTile extends ImagePart {
   draw(ctx: CanvasRenderingContext2D, sx: number, sy: number, dx: number, dy: number) {
     ctx.drawImage(
       this.image.resource,
-      this.sx + sx * AutoTile.partWidth, this.sy + sy * AutoTile.partHeight, AutoTile.partWidth, AutoTile.partHeight,
-      dx *  AutoTile.partWidth, dy * AutoTile.partHeight, AutoTile.partWidth, AutoTile.partHeight
+      this.sx + sx * AutoTileOld.partWidth, this.sy + sy * AutoTileOld.partHeight, AutoTileOld.partWidth, AutoTileOld.partHeight,
+      dx *  AutoTileOld.partWidth, dy * AutoTileOld.partHeight, AutoTileOld.partWidth, AutoTileOld.partHeight
     );
   }
 
@@ -202,7 +350,9 @@ export class AutoTile extends ImagePart {
 
 }
 
-export class AutoTileBuilder {
+
+export class AutoTilBuilder {
+
   autoTilesMap: Map<Tile, AutoTile>;
 
   private canvas: Canvas;
@@ -254,6 +404,7 @@ export class AutoTileBuilder {
 
     return new AutoTile(this.canvas.toImageResourceSync(), 0, 0);
   }
+
 }
 
 
@@ -265,6 +416,8 @@ export class Block {
 
   }
 }
+
+
 
 
 window.addEventListener('load', () => {
@@ -365,33 +518,52 @@ window.addEventListener('load', () => {
     './assets/images/originals/02.png',
     './assets/images/originals/03.png',
     './assets/images/originals/04.png',
-    './assets/images/joins/grass/grass_alpha.png',
-    './assets/images/joins/grass/grass_inter_layer.png',
+    './assets/images/templates/junctions/grass/grass_alpha.png',
+    './assets/images/templates/junctions/grass/grass_inter_layer.png',
     './assets/sounds/field_01.mp3'
   ], (index: number, total: number) => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
-    let autoTilesCanvas = Canvas.fromImageResource(<ImageResource>resources[0]);
-    let tilesCanvas = Canvas.fromImageResource(<ImageResource>resources[1]);
-    let autoTileRaw = Renderer.buildAutoTile(autoTilesCanvas, 1, 1);
-
-    let size = 64;
-
-    autoTileRaw
-      // .resize(size, size, 'pixelated')
-      .append(document.body);
-
 
     let tileGrass = new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2);
     let tileRock = new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2);
     let tileSand = new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2);
 
-    let alphaMap = AutoTile.fromShadesOfGrey(<ImageResource>resources[4], 0, 0);
-    let joinGrass = new AutoTileBuilder(alphaMap, new AutoTile(<ImageResource>resources[5], 0, 0));
+    let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
+    Canvas.fromImageResource(autoTileTemplate).append(document.body);
 
-    let autoTile = joinGrass.buildAutoTile(tileGrass);
+
+    let autoTile = AutoTileHelper.generateAutoTileFromJunctionTemplates(
+      tileGrass,
+      new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0),
+      new ImagePart(<ImageResource>resources[5], 0, 0)
+    );
+
     Canvas.fromImageResource(autoTile.image).append(document.body);
-    Canvas.fromImageResource(autoTile.reverse().image).resize(256, 256, 'pixelated').append(document.body);
+    Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
+    Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
+
+    // let autoTilesCanvas = Canvas.fromImageResource(<ImageResource>resources[0]);
+    // let tilesCanvas = Canvas.fromImageResource(<ImageResource>resources[1]);
+    // let autoTileRaw = Renderer.buildAutoTile(autoTilesCanvas, 1, 1);
+    //
+    // let size = 64;
+    //
+    // autoTileRaw
+    //   // .resize(size, size, 'pixelated')
+    //   .append(document.body);
+    //
+    //
+    // let tileGrass = new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2);
+    // let tileRock = new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2);
+    // let tileSand = new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2);
+    //
+    // let alphaMap = AutoTile.fromShadesOfGrey(<ImageResource>resources[4], 0, 0);
+    // let joinGrass = new AutoTileBuilder(alphaMap, new AutoTile(<ImageResource>resources[5], 0, 0));
+    //
+    // let autoTile = joinGrass.buildAutoTile(tileGrass);
+    // Canvas.fromImageResource(autoTile.image).append(document.body);
+    // Canvas.fromImageResource(autoTile.reverse().image).resize(256, 256, 'pixelated').append(document.body);
 
     // (<AudioResource>resources[6]).play();
   });
