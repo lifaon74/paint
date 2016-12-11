@@ -513,6 +513,65 @@ window.addEventListener('load', () => {
     let map = [];
   };
 
+  let setExponentialPannerConfig = (panner: PannerNode, maxDistance: number) => {
+    let listenerHeight = 100;
+    let maxDistanceVolume = 0.01;
+    let maxDistance2D = Math.sqrt(maxDistance * maxDistance + listenerHeight * listenerHeight);
+
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'exponential'; // linear, inverse, exponential
+    panner.refDistance = listenerHeight;
+    panner.maxDistance = maxDistance2D * 2;
+    panner.rolloffFactor = -Math.log(maxDistanceVolume) / Math.log(maxDistance2D / listenerHeight);
+    panner.coneInnerAngle = 360;
+    panner.coneOuterAngle = 0;
+    panner.coneOuterGain = 0;
+  };
+
+  let audioTest = (audio: AudioResource) => {
+    let div = document.createElement('div');
+    div.classList.add('circle');
+    document.body.appendChild(div);
+    let audioContext = new AudioContext();
+    let source = audioContext.createMediaElementSource(audio.resource);
+
+    audio.resource.loop = true;
+    // let gainNode = audioContext.createGain();
+    //
+    // window.gainNode = gainNode;
+    // gainNode.gain.value = 0.5;
+    //
+    // source.connect(gainNode);
+    // gainNode.connect(audioContext.destination);
+
+
+    let panner = audioContext.createPanner();
+    let panner2 = audioContext.createPanner();
+    let listener = audioContext.listener;
+
+    panner.setPosition(0, 0, 0);
+    panner2.setPosition(640, 0, 0);
+
+    setExponentialPannerConfig(panner, 320 * 4);
+    setExponentialPannerConfig(panner2, 320 * 4);
+
+    window.addEventListener('mousemove', (event: MouseEvent) => {
+      let x = event.clientX - (window.innerWidth / 2);
+      let y = event.clientY - (window.innerHeight / 2);
+      // console.log(x, y);
+      listener.setPosition(x, y, 100);
+    });
+
+
+    source.connect(panner);
+    source.connect(panner2);
+    panner.connect(audioContext.destination);
+    panner2.connect(audioContext.destination);
+
+    audio.play();
+
+  };
+
   ResourceLoader.loadMany([
     './assets/images/originals/01.png',
     './assets/images/originals/02.png',
@@ -520,7 +579,8 @@ window.addEventListener('load', () => {
     './assets/images/originals/04.png',
     './assets/images/templates/junctions/grass/grass_alpha.png',
     './assets/images/templates/junctions/grass/grass_inter_layer.png',
-    './assets/sounds/field_01.mp3'
+    // './assets/sounds/field_01.mp3',
+    // './assets/sounds/005-Rain01.mp3'
   ], (index: number, total: number) => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
@@ -542,6 +602,8 @@ window.addEventListener('load', () => {
     Canvas.fromImageResource(autoTile.image).append(document.body);
     Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
     Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
+
+    // audioTest(<AudioResource>resources[7]);
 
     // let autoTilesCanvas = Canvas.fromImageResource(<ImageResource>resources[0]);
     // let tilesCanvas = Canvas.fromImageResource(<ImageResource>resources[1]);
