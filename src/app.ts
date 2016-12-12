@@ -589,7 +589,7 @@ window.addEventListener('load', () => {
     let tileRock = new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2);
     let tileSand = new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2);
 
-    let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
+    let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 1, 96 * 1));
     Canvas.fromImageResource(autoTileTemplate).append(document.body);
 
 
