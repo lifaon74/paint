@@ -22,6 +22,10 @@ import { AudioResource } from './classes/resources/audioResource.class';
 //   // a += (i >> 1) << 1; // 1568ms
 //   // a += i % 2; // 1538
 //   // a += i & 1; // 1282
+//
+//   // a += ((i & 1) === 1) ? 1 : 0; // 5133
+//   // a += ((i & 1) === 1) | 0; // 5785
+//   // a += +((i & 1) === 1); // 8011
 // }
 // let t2 = new Date().getTime();
 // console.log(a, t2 - t1);
@@ -332,78 +336,48 @@ export class AutoTileHelper {
     }
 
 
-    let i: number;
-    let autoTile;
-    let orderedAutoTile;
-    let index: number;
+    let i: number,
+      a: number, b: number, c: number,
+      offset: number, index: number;
+    let autoTile: AutoTile;
+    let orderedAutoTile: AutoTile;
 
     for(let y = 0; y < 2; y++) {
       for(let x = 0; x < 2; x++) {
-        console.log('--');
         i = x + y * 2;
-        let k = i ^ 0b11;
-        let l = i | ((i & 0b01) ^ 0b01);
-        let m = i | ((i & 0b10) ^ 0b10);
-
-        console.log(i, k, l, m);
         autoTile = autoTiles[i];
+        a = i ^ 0b11;
+        offset = 5 * a;
 
         for(let j = 0; j < ordered.array.length; j++) {
           orderedAutoTile = ordered.array[j];
-          index = -1;
-
           if(orderedAutoTile === autoTile) {
-            index = 5 * k + 4;
+            index = 4;
           } else {
-            let a = ((autoTiles[k] === orderedAutoTile) << 2) | ((autoTiles[l] === orderedAutoTile) << 1) | (autoTiles[m] === orderedAutoTile);
-            console.log(a.toString(2));
+            b = (i & 0b10) | ((i & 0b01) ^ 0b01);
+            c = (i & 0b01) | ((i & 0b10) ^ 0b10);
 
-            if((a === 0b111) || (a === 0b000)) {
+            index =
+              ((autoTiles[a] === orderedAutoTile) ? 0b100 : 0b000) |
+              ((autoTiles[b] === orderedAutoTile) ? 0b010 : 0b000) |
+              ((autoTiles[c] === orderedAutoTile) ? 0b001 : 0b000);
+            // console.log(index.toString(2));
+
+            if(index === 0b000) {
               continue;
             } else {
-              a &= 0b011;
+              index &= 0b011;
             }
-
-            index = 5 * k + a;
           }
 
-          // console.log(index);
-
-          if(index >= 0) {
-            canvas.ctx.drawImage(
-              orderedAutoTile.image.resource,
-              orderedAutoTile.sx + index * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
-              x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
-            );
-          }
+          canvas.ctx.drawImage(
+            orderedAutoTile.image.resource,
+            orderedAutoTile.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
+            x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
+          );
         }
       }
     }
-
-    // for(let j = 0; j < ordered.array.length; j++) {
-    //   orderedAutoTile = ordered.array[j];
-    //   if(orderedAutoTile === autoTile) {
-    //     index = 5 * 2 + 4;
-    //   } else {
-    //     let a = ((autoTiles[3] === orderedAutoTile) << 2) | ((autoTiles[2] === orderedAutoTile) << 1) | (autoTiles[1] === orderedAutoTile); // i = 0
-    //     // let a = ((autoTiles[2] === orderedAutoTile) << 2) | ((autoTiles[0] === orderedAutoTile) << 1) | (autoTiles[3] === orderedAutoTile); // i = 1
-    //     if((a === 0b111) || (a === 0b000)) {
-    //       continue;
-    //     } else {
-    //       a &= 0b011;
-    //     }
-    //     index = 5 * 2 + a;
-    //   }
-    //
-    //   canvas.ctx.drawImage(
-    //     orderedAutoTile.image.resource,
-    //     orderedAutoTile.sx + index * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
-    //     (i % 2) * Tile.halfWidth, Math.floor(i / 2) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
-    //   );
-    // }
-
-
-    console.log(ordered);
 
     return canvas.toImageResourceSync();
   }
@@ -635,9 +609,40 @@ window.addEventListener('load', () => {
     return imageDataResult;
   };
 
-  let randomMapBuilder = () => {
-    let map = [];
+  let randomMapBuilder = (autoTiles: AutoTile[], width: number = 10, height: number = 10): AutoTile[][] => {
+    let map: AutoTile[][] = [];
+    for(let y = 0; y < height; y++) {
+      map[y] = [];
+      for(let x = 0; x < width; x++) {
+        map[y][x] = autoTiles[Math.floor(Math.random() * autoTiles.length)];
+      }
+    }
+    return map;
   };
+
+  let drawMap = (map: AutoTile[][]) => {
+    // console.log(map);
+
+    let canvas = new Canvas((map[0].length - 1) * Tile.width, (map.length - 1) * Tile.height);
+
+    let xMap: AutoTile[];
+    for(let y = 0; y < map.length - 1; y++) {
+      xMap = map[y];
+      for(let x = 0; x < xMap.length - 1; x++) {
+        setTimeout(() => {
+          canvas.ctx.drawImage(AutoTileHelper.buildTile([
+            map[y + 0][x + 0], map[y + 0][x + 1],
+            map[y + 1][x + 0], map[y + 1][x + 1]
+          ]).resource, x * Tile.width, y * Tile.height);
+        }, Math.floor(Math.random() * map.length * xMap.length));
+
+      }
+    }
+
+    canvas.append(document.body);
+  };
+
+
 
   let setExponentialPannerConfig = (panner: PannerNode, maxDistance: number) => {
     let listenerHeight = 100;
@@ -718,10 +723,8 @@ window.addEventListener('load', () => {
     let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
     // Canvas.fromImageResource(autoTileTemplate).append(document.body);
 
-
     let grassAlphaMapJunction = new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0);
     let grassUnderLayerJunction = new ImagePart(<ImageResource>resources[5], 0, 0);
-
 
     let autoTileGrass = AutoTileHelper.generateAutoTileFromJunctionTemplates(
       tileGrass, grassAlphaMapJunction, grassUnderLayerJunction
@@ -735,19 +738,36 @@ window.addEventListener('load', () => {
       tileSand, grassAlphaMapJunction, grassUnderLayerJunction
     );
 
-    [autoTileRock, autoTileGrass, autoTileSand].forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
+    [
+      // autoTileGrass,
+      autoTileRock,
+      // autoTileGrass,
+      autoTileSand,
+      autoTileGrass,
+    ].forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
 
-    Canvas.fromImageResource(autoTileGrass.image).append(document.body);
+    // Canvas.fromImageResource(autoTileGrass.image).append(document.body);
     // Canvas.fromImageResource(autoTileGrass.toTemplate()).append(document.body);
     // Canvas.fromImageResource(autoTileRock.toTemplate()).append(document.body);
     // Canvas.fromImageResource(autoTileSand.toTemplate()).append(document.body);
     // Canvas.fromImageResource(autoTileGrass.toTemplate(true)).append(document.body);
 
+    let map = randomMapBuilder(
+      [autoTileGrass, autoTileRock, autoTileSand],
+      Math.floor(window.innerWidth / Tile.width) + 1,
+      Math.floor(window.innerHeight / Tile.height) + 1
+    );
+    let t1 = Date.now();
+    drawMap(map);
+    let t2 = Date.now();
+    console.log(t2 - t1);
 
-    Canvas.fromImageResource(AutoTileHelper.buildTile([
-      autoTileGrass, autoTileRock,
-      autoTileSand, autoTileGrass
-    ])).append(document.body);
+    // Canvas.fromImageResource(AutoTileHelper.buildTile([
+    //   autoTileGrass, autoTileRock,
+    //   autoTileSand, autoTileGrass
+    // ]))
+    // // .resize(256, 256, 'pixelated')
+    // .append(document.body);
 
 
     // audioTest(<AudioResource>resources[7]);
