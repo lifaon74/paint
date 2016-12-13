@@ -7,103 +7,16 @@ export class ImageRendering {
   static CRISP_EDGES  = 'crisp-edges';
 }
 
+
+
+
 export class Canvas {
-
-  static fromImageResource(image: ImageResource, width: number = -1, height: number = -1): Canvas {
-    if(width < 0) {
-      width = image.naturalWidth;
-    }
-    if(height < 0) {
-      height = image.naturalHeight;
-    }
-
-    let canvas = new Canvas(width, height);
-
-    canvas.ctx.drawImage(
-      image.resource,
-      0, 0, image.naturalWidth, image.naturalHeight,
-      0, 0, width, height
-    );
-    return canvas;
+  static fromImageResource(image: ImageResource): Canvas {
+    return new Canvas(image.width, image.height).putImageResource(image);
   }
 
-  static fromImageData(imageData: ImageData): Canvas {
-    let canvas = new Canvas(imageData.width, imageData.height);
-    canvas.putImageData(imageData);
-    return canvas;
-  }
-
-  static forEachPixels(imageData: ImageData, fnc: (r: number, g: number, b: number, a: number, x: number, y: number) => any[]) {
-    for(let i = 0; i < imageData.data.length; i += 4) {
-      let result: any[] = fnc(
-        imageData.data[i + 0],
-        imageData.data[i + 1],
-        imageData.data[i + 2],
-        imageData.data[i + 3],
-        (i / 4) % imageData.width,
-        Math.floor((i / 4) / imageData.width)
-      );
-
-      if(result) {
-        let resultIndex = (imageData.width * result[5] + result[4]) * 4;
-        imageData.data[resultIndex + 0] = result[0];
-        imageData.data[resultIndex + 1] = result[1];
-        imageData.data[resultIndex + 2] = result[2];
-        imageData.data[resultIndex + 3] = result[3];
-      }
-    }
-
-    return imageData;
-  }
-
-  static mergeImageData(imageDataUnder: ImageData, imageDataOver: ImageData): ImageData {
-    let alpha1: number, alpha2: number, alpha3: number;
-    for(let i = 0; i < imageDataUnder.data.length; i += 4) {
-      alpha1 = imageDataOver.data[i + 3] / 255;
-      alpha2 = (imageDataUnder.data[i + 3] / 255) * (1 - alpha1);
-      alpha3 = alpha1 + alpha2;
-
-      imageDataUnder.data[i + 0] = (imageDataOver.data[i + 0] * alpha1 + imageDataUnder.data[i + 0] * alpha2) / alpha3;
-      imageDataUnder.data[i + 1] = (imageDataOver.data[i + 1] * alpha1 + imageDataUnder.data[i + 1] * alpha2) / alpha3;
-      imageDataUnder.data[i + 2] = (imageDataOver.data[i + 2] * alpha1 + imageDataUnder.data[i + 2] * alpha2) / alpha3;
-      imageDataUnder.data[i + 3] = alpha3 * 255;
-    }
-    return imageDataUnder;
-  }
-
-  static offsetImageData(imageDataSource: ImageData, x: number, y: number): ImageData {
-    let imageDataDestination: ImageData = new ImageData(imageDataSource.width, imageDataSource.height);
-
-    let j: number;
-    let k: number = (x + y * imageDataSource.width) * 4;
-    for(let i = 0; i < imageDataSource.data.length; i += 4) {
-      j = (i + k) % imageDataSource.data.length;
-      imageDataDestination.data[j + 0] = imageDataSource.data[i + 0];
-      imageDataDestination.data[j + 1] = imageDataSource.data[i + 1];
-      imageDataDestination.data[j + 2] = imageDataSource.data[i + 2];
-      imageDataDestination.data[j + 3] = imageDataSource.data[i + 3];
-    }
-
-    return imageDataDestination;
-  }
-
-  static alphaMap(imageData: ImageData, alphaMap: ImageData): ImageData {
-    for(let i = 0; i < imageData.data.length; i += 4) {
-      imageData.data[i + 3] = alphaMap.data[i];
-    }
-    return imageData;
-  }
-
-  static opacity(imageData: ImageData, multiplier: number): ImageData {
-    for(let i = 0; i < imageData.data.length; i += 4) {
-      imageData.data[i + 3] = Math.max(0, Math.min(255, Math.round(imageData.data[i + 3] * multiplier)));
-    }
-    return imageData;
-  }
-
-
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
+  public canvas: HTMLCanvasElement;
+  public ctx: CanvasRenderingContext2D;
 
   constructor(width: number, height: number) {
     this.canvas = document.createElement('canvas');
@@ -122,15 +35,30 @@ export class Canvas {
     return this;
   }
 
-  toImageResource(): Promise<ImageResource> {
-    return ImageResource.load(this.canvas.toDataURL());
-  }
 
-  toImageResourceSync(): ImageResource {
+  toImageResource(): ImageResource {
     let image = new ImageResource();
-    image.src = this.canvas.toDataURL();
+    image._width = 0;
+    image._height = 0;
+    image.resource.src = this.canvas.toDataURL();
     return image;
   }
+
+  putImageResource(imageResource: ImageResource, sx: number = 0, sy: number = 0, sw: number = imageResource.width, sh: number = imageResource.height, dx: number = 0, dy: number = 0): this {
+    sx = Math.max(0, Math.min(imageResource.width, sx));
+    sw = Math.max(0, Math.min(imageResource.width - sx, sw));
+    sy = Math.max(0, Math.min(imageResource.height, sy));
+    sh = Math.max(0, Math.min(imageResource.height - sy, sh));
+
+    if(imageResource._resource) {
+      this.ctx.drawImage(imageResource._resource, sx, sy, sw, sh, dx, dy, sw, sh);
+    } else if(imageResource._imageData) {
+      this.ctx.putImageData(imageResource._imageData, dx, dy, sx, sy, sw, sh);
+    }
+    return this;
+  }
+
+
 
   getImageData(x: number = 0, y: number = 0, width: number = this.canvas.width, height: number = this.canvas.height): ImageData {
     return this.ctx.getImageData(x, y, width, height);

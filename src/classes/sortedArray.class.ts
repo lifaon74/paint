@@ -19,54 +19,78 @@ export class SortedArray<T> {
     this.setComparisonFunction(comparisonFunction);
   }
 
-  put(value: T): number {
-    let pivotIndex: number  = this.getPivotIndex(value);
-    this.array.splice(pivotIndex, 0, value);
-    return pivotIndex;
+  insert(value: T): number {
+    let insertIndex: number = this.getInsertIndex(value);
+    this.array.splice(insertIndex, 0, value);
+    return insertIndex;
   }
 
-  putUnique(value: T): number {
-    let pivotIndex: number  = this.getPivotIndex(value);
-    if(this.array[pivotIndex] !== value) {
-      this.array.splice(pivotIndex, 0, value);
+  insertUnique(value: T): number {
+    let insertIndex: number = this.getInsertIndex(value);
+    if(!this.match(insertIndex, value)) {
+      this.array.splice(insertIndex, 0, value);
     }
-    return pivotIndex;
+    return insertIndex;
   }
 
-  delete(index: number) {
+  remove(index: number) {
     this.array.splice(index, 1);
   }
 
-  includes(value: T): boolean {
-    return this.array[this.getPivotIndex(value)] === value;
+  indexOf(value: T): number {
+    let insertIndex: number = this.getInsertIndex(value);
+    return this.match(insertIndex, value) ? insertIndex : -1;
   }
+
+  includes(value: T): boolean {
+    return this.indexOf(value) >= 0;
+  }
+
 
   get(index: number): T {
     return this.array[index];
   }
 
-  getPivotIndex(value: T): number {
+
+  /**
+   * Return true if the element at position "index" is equal to "value"
+   * @param index
+   * @param value
+   * @returns {boolean}
+   */
+  match(index: number, value: T): boolean {
+    return (index < this.array.length) && (this.comparisonFunction(this.array[index], value) === 0);
+  }
+
+
+  /**
+   * Get index at with value must be inserted keeping order
+   * @param value
+   * @returns {number}
+   */
+  getInsertIndex(value: T): number {
     let startIndex: number  = 0;
     let endIndex: number    = this.array.length;
-    let pivotIndex: number  = 0;
+    let insertIndex: number  = 0;
 
     while((endIndex - startIndex) > 0) {
-      pivotIndex = Math.floor(startIndex + (endIndex - startIndex) / 2);
+      insertIndex = Math.floor(startIndex + (endIndex - startIndex) / 2);
 
-      switch(this.comparisonFunction(value, this.array[pivotIndex])) {
+      switch(this.comparisonFunction(value, this.array[insertIndex])) {
         case -1:
-          endIndex = pivotIndex;
+          endIndex = insertIndex;
           break;
         case 1:
-          startIndex = pivotIndex + 1;
+          startIndex = insertIndex + 1;
           break;
         case 0:
-          return pivotIndex;
+          return insertIndex;
       }
     }
 
     return startIndex;
   }
+
 
   setComparisonFunction(comparisonFunction: ComparisonFunction<T>) {
     this.comparisonFunction = comparisonFunction;
