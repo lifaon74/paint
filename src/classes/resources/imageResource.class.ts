@@ -5,6 +5,16 @@ export class ImageResource extends AsyncResource {
     return new ImageResource().load(source);
   }
 
+  static create(width: number, height: number) {
+    return ImageResource.fromImageData(new ImageData(width, height));
+  }
+
+  static fromImageData(imageData: ImageData): ImageResource {
+    let imageResource = new ImageResource();
+    imageResource.imageData = imageData;
+    return imageResource;
+  }
+
   //public resource: HTMLImageElement;
 
   public _width: number;

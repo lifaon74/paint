@@ -1,4 +1,5 @@
 export class ImageDataHelper {
+
   static sourceOverFunction(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
     let alpha1: number, alpha2: number, alpha3: number;
 
@@ -12,16 +13,25 @@ export class ImageDataHelper {
     destination.data[destinationIndex + 3] = alpha3 * 255;
   }
 
+  static copyFunction(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    destination.data[destinationIndex + 0] = source.data[sourceIndex + 0];
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1];
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2];
+    destination.data[destinationIndex + 3] = source.data[sourceIndex + 3];
+  }
+
   static alphaMapFunction(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
     destination.data[destinationIndex + 3] = source.data[sourceIndex];
   }
 
-
   static mergeImageData(
-    source: ImageData, destination: ImageData, mergeFunction: ((source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) => any),
+    mergeFunction: ((source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) => any),
+    source: ImageData, destination: ImageData = null,
     sx: number = 0, sy: number = 0, sw: number = source.width, sh: number = source.height,
     dx: number = 0, dy: number = 0
   ): ImageData {
+    if(destination === null) { destination = new ImageData(sw + dx, sy + dy); }
+
     let sx_start  = Math.max(0, -dx, Math.min(source.width, sx)); // sx_start in [max(0, -dx), width]
     let sx_end    = Math.max(sx, Math.min(source.width, sx + Math.min(sw, destination.width - dx))); // sx_end in [sx, min(source_width, destination_width - dx)]
 
@@ -40,6 +50,13 @@ export class ImageDataHelper {
     }
 
     return destination;
+  }
+
+
+  static copy(imageData: ImageData): ImageData {
+    let copy: ImageData = new ImageData(imageData.width, imageData.height);
+    copy.data.set(imageData.data);
+    return copy;
   }
 
 

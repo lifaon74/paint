@@ -396,7 +396,7 @@ export class AutoTileHelper {
             }
 
             ImageDataHelper.mergeImageData(
-              orderedAutoTile.image.imageData, imageData, ImageDataHelper.sourceOverFunction,
+              ImageDataHelper.sourceOverFunction, orderedAutoTile.image.imageData, imageData,
               orderedAutoTile.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
               x * Tile.halfWidth, y * Tile.halfHeight
             );
@@ -531,48 +531,62 @@ window.addEventListener('load', () => {
     './assets/images/originals/02.png',
     './assets/images/originals/03.png',
     './assets/images/originals/04.png',
-    './assets/images/templates/junctions/grass/grass_alpha.png',
-    './assets/images/templates/junctions/grass/grass_inter_layer.png',
+    './assets/images/templates/junctions/grass/grass_alpha_map.png',
+    './assets/images/templates/junctions/grass/grass_under_layer.png',
+    './assets/images/templates/junctions/sand/sand_alpha_map.png',
     // './assets/sounds/field_01.mp3',
     // './assets/sounds/005-Rain01.mp3'
   ], (index: number, total: number) => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
 
-    let tileGrass = new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency();
-    let tileRock = new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency();
-    let tileSand = new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency();
+    let tiles: any = {
+      grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),
+      rock_0: new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency(),
+      sand_0: new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency(),
+      sand_1: new Tile(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency(),
+      earth_0: new Tile(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency(),
+    };
 
     let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
     // Canvas.fromImageResource(autoTileTemplate).append(document.body);
 
+    let alphaMaps: any = {
+      grass: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0),
+      sand: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[6], 0, 0)), 0, 0)
+    };
 
-    let grassAlphaMapJunction = new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0);
     let grassUnderLayerJunction = new ImagePart(<ImageResource>resources[5], 0, 0);
+    let sandUnderLayerJunction: ImagePart = new ImagePart(
+      ImageResource.fromImageData(ImageDataHelper.changeOpacity(ImageDataHelper.copy(alphaMaps.sand.image.imageData), 0.5)),
+    0, 0);
 
-    let autoTileGrass = AutoTileHelper.generateAutoTileFromJunctionTemplates(
-      tileGrass, grassAlphaMapJunction, grassUnderLayerJunction
-    );
+    let autoTiles: any = {
+      sand_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
+        tiles.sand_0, alphaMaps.sand, sandUnderLayerJunction
+      ),
+      sand_1: AutoTileHelper.generateAutoTileFromJunctionTemplates(
+        tiles.sand_1, alphaMaps.sand, sandUnderLayerJunction
+      ),
+      grass_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
+        tiles.grass_0, alphaMaps.grass, grassUnderLayerJunction
+      ),
+      rock_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
+        tiles.rock_0, alphaMaps.grass, grassUnderLayerJunction
+      ),
+    };
 
-    let autoTileRock = AutoTileHelper.generateAutoTileFromJunctionTemplates(
-      tileRock, grassAlphaMapJunction, grassUnderLayerJunction
-    );
+    [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0]
+      .forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
 
-    let autoTileSand = AutoTileHelper.generateAutoTileFromJunctionTemplates(
-      tileSand, grassAlphaMapJunction, grassUnderLayerJunction
-    );
-
-
-    [autoTileRock, autoTileSand, autoTileGrass].forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
-
-    // Canvas.fromImageResource(autoTileGrass.image).append(document.body);
-    // Canvas.fromImageResource(autoTileGrass.toTemplate()).append(document.body);
-    // Canvas.fromImageResource(autoTileRock.toThasTransparencyemplate()).append(document.body);
-    // Canvas.fromImageResource(autoTileGrass.toTemplate(true)).append(document.body);
+    // let autoTile: AutoTile = autoTiles.sand_1;
+    // Canvas.fromImageResource(autoTile.image).append(document.body);
+    // Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
+    // Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
 
     let map = randomMapBuilder(
-      [autoTileGrass, autoTileRock, autoTileSand],
-      10, 10
+      [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0],
+      100, 100
       // Math.floor(window.innerWidth / Tile.width) + 1,
       // Math.floor(window.innerHeight / Tile.height) + 1
     );
