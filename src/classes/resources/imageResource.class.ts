@@ -114,7 +114,7 @@ export class ImageResource extends AsyncResource {
         canvas.width  = this.width;
         canvas.height = this.height;
         let ctx: CanvasRenderingContext2D = canvas.getContext('2d');
-        ctx.drawImage(this.resource, 0, 0);
+        ctx.drawImage(this._resource, 0, 0);
         this._imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       }
     }

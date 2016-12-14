@@ -4,7 +4,7 @@ import { ImageResource } from './classes/resources/imageResource.class';
 import { ResourceLoader } from './classes/resources/resourceLoader.class';
 import { AsyncResource } from './classes/resources/asyncResource.class';
 import { AudioResource } from './classes/resources/audioResource.class';
-import { ImageDataHelper } from './classes/imageDataHelper.class';
+import { ImageDataHelper, Compositing } from './classes/imageDataHelper.class';
 
 // https://developer.mozilla.org/fr/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation
 
@@ -395,8 +395,8 @@ export class AutoTileHelper {
               }
             }
 
-            ImageDataHelper.mergeImageData(
-              ImageDataHelper.sourceOverFunction, orderedAutoTile.image.imageData, imageData,
+            Compositing.apply(
+              Compositing.sourceOver, orderedAutoTile.image.imageData, imageData,
               orderedAutoTile.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
               x * Tile.halfWidth, y * Tile.halfHeight
             );
@@ -465,6 +465,39 @@ window.addEventListener('load', () => {
     return canvas;
   };
 
+  let compositionTest = () => {
+    ResourceLoader.loadMany([
+      './assets/images/other/source.png',
+      './assets/images/other/destination.png'
+    ]).then((resources: ImageResource[]) => {
+      let applyFilter = (filterName: string, source: ImageResource, destination: ImageResource) => {
+        let canvas_0 = Canvas.fromImageResource(
+          ImageResource.fromImageData(
+            Compositing.apply(Compositing.get(filterName), source.imageData, ImageDataHelper.copy(destination.imageData))
+          )
+        ).append(document.body);
+
+        let canvas_1 = new Canvas(source.width, source.height);
+        canvas_1.ctx.drawImage(destination.resource, 0, 0);
+        canvas_1.ctx.globalCompositeOperation = filterName;
+        canvas_1.ctx.drawImage(source.resource, 0, 0);
+        canvas_1.append(document.body);
+
+        console.log('distance',  ImageDataHelper.distance(canvas_0.getImageData(), canvas_1.getImageData()));
+      };
+
+      [
+        'source-over', 'destination-over',
+        'source-in', 'destination-in',
+        'source-out', 'destination-out'
+      ].forEach((filterName: string) => {
+        console.log(filterName);
+        applyFilter(filterName, resources[1], resources[0]);
+        applyFilter(filterName, resources[0], resources[1]);
+        applyFilter(filterName, resources[0], resources[0]);
+      });
+    });
+  };
 
   let setExponentialPannerConfig = (panner: PannerNode, maxDistance: number) => {
     let listenerHeight = 100;
@@ -526,6 +559,8 @@ window.addEventListener('load', () => {
   };
 
 
+  compositionTest();
+
   ResourceLoader.loadMany([
     './assets/images/originals/01.png',
     './assets/images/originals/02.png',
@@ -534,6 +569,7 @@ window.addEventListener('load', () => {
     './assets/images/templates/junctions/grass/grass_alpha_map.png',
     './assets/images/templates/junctions/grass/grass_under_layer.png',
     './assets/images/templates/junctions/sand/sand_alpha_map.png',
+    './assets/images/templates/mountain_02.png',
     // './assets/sounds/field_01.mp3',
     // './assets/sounds/005-Rain01.mp3'
   ], (index: number, total: number) => {
@@ -553,12 +589,16 @@ window.addEventListener('load', () => {
 
     let alphaMaps: any = {
       grass: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0),
-      sand: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[6], 0, 0)), 0, 0)
+      sand: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[6], 0, 0)), 0, 0),
+      mountain: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[7], 0, 0)), 0, 0)
     };
+
+    Canvas.fromImageResource(alphaMaps.mountain.image).append(document.body);
+
 
     let grassUnderLayerJunction = new ImagePart(<ImageResource>resources[5], 0, 0);
     let sandUnderLayerJunction: ImagePart = new ImagePart(
-      ImageResource.fromImageData(ImageDataHelper.changeOpacity(ImageDataHelper.copy(alphaMaps.sand.image.imageData), 0.5)),
+      ImageResource.fromImageData(ImageDataHelper.changeOpacity(ImageDataHelper.copy(alphaMaps.sand.image.imageData), 0.6)),
     0, 0);
 
     let autoTiles: any = {
@@ -584,27 +624,33 @@ window.addEventListener('load', () => {
     // Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
     // Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
 
-    let map = randomMapBuilder(
-      [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0],
-      100, 100
-      // Math.floor(window.innerWidth / Tile.width) + 1,
-      // Math.floor(window.innerHeight / Tile.height) + 1
-    );
-    let t1 = Date.now();
-    let rendered = drawMap(map);
-    let t2 = Date.now();
-    console.log(t2 - t1);
-    rendered.append(document.body);
+    // let map = randomMapBuilder(
+    //   [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0],
+    //   10, 10
+    //   // Math.floor(window.innerWidth / Tile.width) + 1,
+    //   // Math.floor(window.innerHeight / Tile.height) + 1
+    // );
+    // let t1 = Date.now();
+    // let rendered = drawMap(map);
+    // let t2 = Date.now();
+    // console.log(t2 - t1);
+    // rendered.append(document.body);
 
-    // Canvas.fromImageResource(AutoTileHelper.buildTile([
-    //   null, autoTileRock,
-    //   autoTileSand, null
-    // ]))
-    // // .resize(256, 256, 'pixelated')
+    let tileImageResource: ImageResource = AutoTileHelper.buildTile([
+      autoTiles.rock_0, autoTiles.rock_0,
+      autoTiles.sand_0, autoTiles.rock_0
+    ]);
+
+    // Canvas.fromImageResource(
+    //   ImageResource.fromImageData(
+    //     ImageDataHelper.filter(ImageDataHelper.alphaMapFunction, tileImageResource.imageData)
+    //   )
+    // )
+    // .resize(256, 256, 'pixelated')
     // .append(document.body);
 
 
-    // Canvas.fromImageData(Canvas.mergeImageData(
+    // Canvas.fromImageData(Canvas.filter(
     //   Canvas.fromImageResource(<ImageResource>resources[0]).getImageData(32 * 8, 0, 64, 64),
     //   Canvas.fromImageResource(<ImageResource>resources[0]).getImageData(32 * 10, 0, 32, 32),
     //   0, 0, 64, 64, 16, 0
