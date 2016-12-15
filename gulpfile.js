@@ -1,4 +1,5 @@
 const gulp = require('gulp');
+const gutil = require('gulp-util');
 const ts = require('gulp-typescript');
 const sourcemaps = require('gulp-sourcemaps');
 const path = require('path');
@@ -24,8 +25,18 @@ gulp.task('build.js', () => {
 });
 
 gulp.task('browserify', ['build.js'], function() {
+  // let bundle = null;
+  //
+  //
+  // try {
+  //   bundle = browserify('dist/app.js').bundle();
+  // } else {
+  //
+  // }
+
   return browserify('dist/app.js')
     .bundle()
+    .on('error', gutil.log)
     .pipe(source('app.js'))
     .pipe(gulp.dest('dist'));
 });

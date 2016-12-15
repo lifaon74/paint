@@ -12,19 +12,23 @@ export class Compositing {
     let alpha_source: number      = source.data[sourceIndex + 3] / 255;
     let alpha_destination: number = (destination.data[destinationIndex + 3] / 255) * (1 - alpha_source);
     let alpha: number             = alpha_source + alpha_destination;
-    destination.data[destinationIndex    ] = (source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination) / alpha;
-    destination.data[destinationIndex + 1] = (source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination) / alpha;
-    destination.data[destinationIndex + 2] = (source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination) / alpha;
-    destination.data[destinationIndex + 3] = (alpha_source + alpha_destination) * 255;
+    alpha_source /= alpha;
+    alpha_destination /= alpha;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
+    destination.data[destinationIndex + 3] = alpha * 255;
   }
 
   static destinationOver(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
-    let alpha_destination: number = destination.data[sourceIndex + 3] / 255;
-    let alpha_source: number      = (source.data[destinationIndex + 3] / 255) * (1 - alpha_destination);
+    let alpha_destination: number = destination.data[destinationIndex + 3] / 255;
+    let alpha_source: number      = (source.data[sourceIndex + 3] / 255) * (1 - alpha_destination);
     let alpha: number             = alpha_source + alpha_destination;
-    destination.data[destinationIndex    ] = (source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination) / alpha;
-    destination.data[destinationIndex + 1] = (source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination) / alpha;
-    destination.data[destinationIndex + 2] = (source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination) / alpha;
+    alpha_source /= alpha;
+    alpha_destination /= alpha;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
     destination.data[destinationIndex + 3] = alpha * 255;
   }
 
@@ -43,11 +47,60 @@ export class Compositing {
     destination.data[destinationIndex    ] = source.data[sourceIndex    ];
     destination.data[destinationIndex + 1] = source.data[sourceIndex + 1];
     destination.data[destinationIndex + 2] = source.data[sourceIndex + 2];
-    destination.data[destinationIndex + 3] = source.data[sourceIndex + 3]* (1 - (destination.data[destinationIndex + 3] / 255));
+    destination.data[destinationIndex + 3] = source.data[sourceIndex + 3] * (1 - (destination.data[destinationIndex + 3] / 255));
   }
 
   static destinationOut(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
     destination.data[destinationIndex + 3] = (1 - (source.data[sourceIndex + 3] / 255)) * destination.data[destinationIndex + 3];
+  }
+
+  static sourceAtop(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    let alpha_source: number      = source.data[sourceIndex + 3] * destination.data[destinationIndex + 3] / 65025;
+    let alpha_destination: number = (destination.data[destinationIndex + 3] / 255) - alpha_source;
+    let alpha: number             = alpha_source + alpha_destination;
+    alpha_source /= alpha;
+    alpha_destination /= alpha;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
+    destination.data[destinationIndex + 3] = alpha * 255;
+  }
+
+  static destinationAtop(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    let alpha_destination: number = source.data[sourceIndex + 3] * destination.data[destinationIndex + 3] / 65025;
+    let alpha_source: number      = (source.data[sourceIndex + 3] / 255) - alpha_destination;
+    let alpha: number             = alpha_source + alpha_destination;
+    alpha_source /= alpha;
+    alpha_destination /= alpha;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
+    destination.data[destinationIndex + 3] = alpha * 255;
+  }
+
+  static xor(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    let as: number                = source.data[sourceIndex + 3] / 255;
+    let ad: number                = destination.data[destinationIndex + 3] / 255;
+    let a: number                 = as * ad;
+    let alpha_source: number      = as - a;
+    let alpha_destination: number = ad - a;
+    let alpha: number             = alpha_source + alpha_destination;
+    alpha_source /= alpha;
+    alpha_destination /= alpha;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
+    destination.data[destinationIndex + 3] = alpha * 255;
+  }
+
+  static lighter(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    let alpha_source: number      = source.data[sourceIndex + 3] / 255;
+    let alpha_destination: number = destination.data[destinationIndex + 3] / 255;
+    let alpha: number             = alpha_source + alpha_destination;
+    destination.data[destinationIndex    ] = source.data[sourceIndex    ] * alpha_source + destination.data[destinationIndex    ] * alpha_destination;
+    destination.data[destinationIndex + 1] = source.data[sourceIndex + 1] * alpha_source + destination.data[destinationIndex + 1] * alpha_destination;
+    destination.data[destinationIndex + 2] = source.data[sourceIndex + 2] * alpha_source + destination.data[destinationIndex + 2] * alpha_destination;
+    destination.data[destinationIndex + 3] = alpha * 255;
   }
 
   static copy(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
@@ -66,16 +119,16 @@ export class Compositing {
   }
 
   static grayScaleAverage(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
-    let gray: number = (source.data[sourceIndex + 0] + source.data[sourceIndex + 1] + source.data[sourceIndex + 2]) / 3;
-    destination.data[destinationIndex + 0] = gray;
+    let gray: number = (source.data[sourceIndex] + source.data[sourceIndex + 1] + source.data[sourceIndex + 2]) / 3;
+    destination.data[destinationIndex    ] = gray;
     destination.data[destinationIndex + 1] = gray;
     destination.data[destinationIndex + 2] = gray;
     destination.data[destinationIndex + 3] = source.data[sourceIndex + 3];
   }
 
   static grayScaleLuma(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
-    let gray: number = source.data[sourceIndex + 0] * 0.3 + source.data[sourceIndex + 1] * 0.59 + source.data[sourceIndex + 2] * 0.11;
-    destination.data[destinationIndex + 0] = gray;
+    let gray: number = source.data[sourceIndex] * 0.3 + source.data[sourceIndex + 1] * 0.59 + source.data[sourceIndex + 2] * 0.11;
+    destination.data[destinationIndex    ] = gray;
     destination.data[destinationIndex + 1] = gray;
     destination.data[destinationIndex + 2] = gray;
     destination.data[destinationIndex + 3] = source.data[sourceIndex + 3];
@@ -83,10 +136,17 @@ export class Compositing {
 
   static grayScaleDesaturation(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
     let gray: number = (Math.max(source.data[sourceIndex + 0], source.data[sourceIndex + 1], source.data[sourceIndex + 2]) +
-      Math.min(source.data[sourceIndex + 0], source.data[sourceIndex + 1], source.data[sourceIndex + 2])) / 2;
-    destination.data[destinationIndex + 0] = gray;
+      Math.min(source.data[sourceIndex], source.data[sourceIndex + 1], source.data[sourceIndex + 2])) / 2;
+    destination.data[destinationIndex    ] = gray;
     destination.data[destinationIndex + 1] = gray;
     destination.data[destinationIndex + 2] = gray;
+    destination.data[destinationIndex + 3] = source.data[sourceIndex + 3];
+  }
+
+  static invert(source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) {
+    destination.data[destinationIndex    ] = 255 - source.data[sourceIndex    ];
+    destination.data[destinationIndex + 1] = 255 - source.data[sourceIndex + 1];
+    destination.data[destinationIndex + 2] = 255 - source.data[sourceIndex + 2];
     destination.data[destinationIndex + 3] = source.data[sourceIndex + 3];
   }
 
@@ -105,6 +165,14 @@ export class Compositing {
         return Compositing.sourceOut;
       case 'destination-out':
         return Compositing.destinationOut;
+      case 'source-atop':
+        return Compositing.sourceAtop;
+      case 'destination-atop':
+        return Compositing.destinationAtop;
+      case 'xor':
+        return Compositing.xor;
+      case 'lighter':
+        return Compositing.lighter;
 
       // extended
       case 'alpha-map':
@@ -181,12 +249,15 @@ export class ImageDataHelper {
     return true;
   }
 
-  static distance(imageData_0: ImageData, imageData_1: ImageData): number {
-    let distance: number = 0;
-    for(let i = 0; i < imageData_0.data.length; i++) {
-      distance += Math.abs(imageData_0.data[i] - imageData_1.data[i]);
+  static distance(imageData_0: ImageData, imageData_1: ImageData) {
+    let distance: number[] = [0, 0, 0, 0];
+    for(let i = 0; i < imageData_0.data.length; i += 4) {
+      distance[0] += Math.abs(imageData_0.data[i + 0] - imageData_1.data[i + 0]);
+      distance[1] += Math.abs(imageData_0.data[i + 1] - imageData_1.data[i + 1]);
+      distance[2] += Math.abs(imageData_0.data[i + 2] - imageData_1.data[i + 2]);
+      distance[3] += Math.abs(imageData_0.data[i + 3] - imageData_1.data[i + 3]);
     }
-    return distance;
+    console.log(distance);
   }
 
   static offsetImageData(imageDataSource: ImageData, x: number, y: number): ImageData {

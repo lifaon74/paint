@@ -5,6 +5,7 @@ import { ResourceLoader } from './classes/resources/resourceLoader.class';
 import { AsyncResource } from './classes/resources/asyncResource.class';
 import { AudioResource } from './classes/resources/audioResource.class';
 import { ImageDataHelper, Compositing } from './classes/imageDataHelper.class';
+import { DeepMap } from './classes/deepMap.class';
 
 // https://developer.mozilla.org/fr/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation
 
@@ -197,11 +198,6 @@ export class AutoTile extends ImagePart {
           template.sx + x * Tile.halfWidth, template.sy + y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
           Math.floor(AutoTile.templateToAutoTileIndexes[x + y * 4] * 1.25) * Tile.halfWidth, 0
         );
-        // canvas.ctx.drawImage(
-        //   template.image.resource,
-        //   template.sx + x * Tile.halfWidth, template.sy + y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
-        //   Math.floor(AutoTile.templateToAutoTileIndexes[x + y * 4] * 1.25) * Tile.halfWidth, 0, Tile.halfWidth, Tile.halfHeight
-        // );
       }
     }
 
@@ -211,11 +207,6 @@ export class AutoTile extends ImagePart {
         tile.sx + (i % 2) * Tile.halfWidth, tile.sy + Math.floor(i / 2) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
         (i * 5 + 4) * Tile.halfWidth, 0
       );
-      // canvas.ctx.drawImage(
-      //   tile.image.resource,
-      //   tile.sx + (i % 2) * Tile.halfWidth, tile.sy + Math.floor(i / 2) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
-      //   (i * 5 + 4) * Tile.halfWidth, 0, Tile.halfWidth, Tile.halfHeight
-      // );
     }
 
     let autoTile = new AutoTile(canvas.toImageResource(), 0, 0);
@@ -250,11 +241,6 @@ export class AutoTile extends ImagePart {
         this.sx + Math.floor(i * 1.25) * Tile.halfWidth, this.sy, Tile.halfWidth, Tile.halfHeight,
         (j % 4) * Tile.halfWidth, Math.floor(j / 4) * Tile.halfHeight
       );
-      // canvas.ctx.drawImage(
-      //   this.image.resource,
-      //   this.sx + Math.floor(i * 1.25) * Tile.halfWidth, this.sy, Tile.halfWidth, Tile.halfHeight,
-      //   (j % 4) * Tile.halfWidth, Math.floor(j / 4) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
-      // );
     }
     return canvas.toImageResource();
   }
@@ -348,7 +334,11 @@ export class AutoTileHelper {
 
 
   // topLeftAutoTile: AutoTile, topRightAutoTile: AutoTile, bottomLeftAutoTile: AutoTile, bottomRightAutoTile: AutoTile
+  static buildTileCache = new DeepMap<ImageResource>();
   static buildTile(autoTiles: [AutoTile, AutoTile, AutoTile, AutoTile]): ImageResource {
+    let imageResource: ImageResource = AutoTileHelper.buildTileCache.get(autoTiles);
+    if(imageResource) { return imageResource; }
+
     let imageData = new ImageData(Tile.width, Tile.height);
 
     let ordered: SortedArray<AutoTile> = new SortedArray<AutoTile>(AutoTileHelper.autoTileComparisonFunction);
@@ -407,6 +397,7 @@ export class AutoTileHelper {
 
     let imageResource: ImageResource = new ImageResource();
     imageResource.imageData = imageData;
+    AutoTileHelper.buildTileCache.set(autoTiles, imageResource);
     return imageResource;
   }
 
@@ -422,6 +413,7 @@ export class Block {
 
   }
 }
+
 
 
 window.addEventListener('load', () => {
@@ -471,30 +463,55 @@ window.addEventListener('load', () => {
       './assets/images/other/destination.png'
     ]).then((resources: ImageResource[]) => {
       let applyFilter = (filterName: string, source: ImageResource, destination: ImageResource) => {
+        let filter = Compositing.get(filterName);
+        let copy = ImageDataHelper.copy(destination.imageData);
         let canvas_0 = Canvas.fromImageResource(
           ImageResource.fromImageData(
-            Compositing.apply(Compositing.get(filterName), source.imageData, ImageDataHelper.copy(destination.imageData))
+            Compositing.apply(filter, source.imageData, copy, void 0, void 0, void 0, void 0, 60, 60)
           )
         ).append(document.body);
+
+
+        // let t1 = Date.now();
+        // for(let i = 0; i < 1000; i++) {
+        //   Compositing.apply(filter, source.imageData, copy);
+        // }
+        // let t2 = Date.now();
+        // console.log('IMAGEDATA TIME', t2 - t1);
 
         let canvas_1 = new Canvas(source.width, source.height);
         canvas_1.ctx.drawImage(destination.resource, 0, 0);
         canvas_1.ctx.globalCompositeOperation = filterName;
-        canvas_1.ctx.drawImage(source.resource, 0, 0);
+        canvas_1.ctx.drawImage(source.resource, 60, 60);
         canvas_1.append(document.body);
 
-        console.log('distance',  ImageDataHelper.distance(canvas_0.getImageData(), canvas_1.getImageData()));
+        ImageDataHelper.distance(canvas_0.getImageData(), canvas_1.getImageData());
+
+        // canvas_1.ctx.globalCompositeOperation = filterName;
+        // t1 = Date.now();
+        // for(let i = 0; i < 1000; i++) {
+        //   canvas_1.ctx.drawImage(source.resource, 0, 0);
+        // }
+        // t2 = Date.now();
+        // console.log('CANVAS TIME', t2 - t1);
       };
 
       [
-        'source-over', 'destination-over',
-        'source-in', 'destination-in',
-        'source-out', 'destination-out'
+        'source-over',
+        'destination-over',
+        'source-in',
+        'destination-in',
+        'source-out',
+        'destination-out',
+        'source-atop',
+        'destination-atop',
+        'xor',
+        'lighter',
       ].forEach((filterName: string) => {
         console.log(filterName);
         applyFilter(filterName, resources[1], resources[0]);
-        applyFilter(filterName, resources[0], resources[1]);
-        applyFilter(filterName, resources[0], resources[0]);
+        // applyFilter(filterName, resources[0], resources[1]);
+        // applyFilter(filterName, resources[0], resources[0]);
       });
     });
   };
@@ -558,8 +575,8 @@ window.addEventListener('load', () => {
 
   };
 
+  // compositionTest();
 
-  compositionTest();
 
   ResourceLoader.loadMany([
     './assets/images/originals/01.png',
@@ -569,12 +586,14 @@ window.addEventListener('load', () => {
     './assets/images/templates/junctions/grass/grass_alpha_map.png',
     './assets/images/templates/junctions/grass/grass_under_layer.png',
     './assets/images/templates/junctions/sand/sand_alpha_map.png',
-    './assets/images/templates/mountain_02.png',
+    './assets/images/templates/borders/mountain/mountain_alpha_map.png',
+    './assets/images/templates/borders/mountain/mountain_over_layer.png',
     // './assets/sounds/field_01.mp3',
     // './assets/sounds/005-Rain01.mp3'
   ], (index: number, total: number) => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
+
 
     let tiles: any = {
       grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),
@@ -593,13 +612,15 @@ window.addEventListener('load', () => {
       mountain: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[7], 0, 0)), 0, 0)
     };
 
-    Canvas.fromImageResource(alphaMaps.mountain.image).append(document.body);
+    // Canvas.fromImageResource(alphaMaps.mountain.image).append(document.body);
 
 
     let grassUnderLayerJunction = new ImagePart(<ImageResource>resources[5], 0, 0);
     let sandUnderLayerJunction: ImagePart = new ImagePart(
       ImageResource.fromImageData(ImageDataHelper.changeOpacity(ImageDataHelper.copy(alphaMaps.sand.image.imageData), 0.6)),
     0, 0);
+
+    let mountainOverLayerJunction = new ImagePart(<ImageResource>resources[8], 0, 0);
 
     let autoTiles: any = {
       sand_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
@@ -614,9 +635,12 @@ window.addEventListener('load', () => {
       rock_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
         tiles.rock_0, alphaMaps.grass, grassUnderLayerJunction
       ),
+      earth_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
+        tiles.earth_0, alphaMaps.grass, grassUnderLayerJunction
+      ),
     };
 
-    [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0]
+    [autoTiles.rock_0, autoTiles.earth_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0]
       .forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
 
     // let autoTile: AutoTile = autoTiles.sand_1;
@@ -624,17 +648,18 @@ window.addEventListener('load', () => {
     // Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
     // Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
 
-    // let map = randomMapBuilder(
-    //   [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0],
-    //   10, 10
-    //   // Math.floor(window.innerWidth / Tile.width) + 1,
-    //   // Math.floor(window.innerHeight / Tile.height) + 1
-    // );
-    // let t1 = Date.now();
-    // let rendered = drawMap(map);
-    // let t2 = Date.now();
-    // console.log(t2 - t1);
-    // rendered.append(document.body);
+    let map = randomMapBuilder(
+      [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0, autoTiles.earth_0],
+      10, 10
+      // Math.floor(window.innerWidth / Tile.width) + 1,
+      // Math.floor(window.innerHeight / Tile.height) + 1
+    );
+    let t1 = Date.now();
+    let rendered = drawMap(map);
+    let t2 = Date.now();
+    console.log(t2 - t1);
+    rendered.append(document.body);
+    AutoTileHelper.buildTileCache.clear();
 
     let tileImageResource: ImageResource = AutoTileHelper.buildTile([
       autoTiles.rock_0, autoTiles.rock_0,
@@ -643,10 +668,13 @@ window.addEventListener('load', () => {
 
     // Canvas.fromImageResource(
     //   ImageResource.fromImageData(
-    //     ImageDataHelper.filter(ImageDataHelper.alphaMapFunction, tileImageResource.imageData)
+    //     Compositing.apply(
+    //       Compositing.sourceOver, mountainOverLayerJunction.image.imageData,
+    //       Compositing.apply(Compositing.destinationIn, alphaMaps.mountain.image.imageData, tileImageResource.imageData)
+    //     )
     //   )
     // )
-    // .resize(256, 256, 'pixelated')
+    // // .resize(256, 256, 'pixelated')
     // .append(document.body);
 
 
