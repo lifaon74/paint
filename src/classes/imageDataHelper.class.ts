@@ -1,5 +1,6 @@
 export declare type CompositingFunction = (source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) => void;
 
+declare const SIMD: any;
 
 export class Compositing {
 
@@ -219,6 +220,67 @@ export class Compositing {
     return destination;
   }
 
+
+  static SIMDSourceOver(
+    source: ImageData, destination: ImageData = null
+  ) {
+
+    if(destination === null) { destination = new ImageData(source.width, source.height); }
+
+    let length = (source.data.length >> 4) << 4;
+
+
+    let alphaSourceSIMD: any;
+    let alphaDestinationSIMD: any;
+    let alphaSIMD: any;
+    let colorSourceSIMD: any;
+    let colorDestinationSIMD: any;
+    let resultSIMD: any;
+    let splat255SIMD = SIMD.Float32x4.splat(255);
+
+    for(let i = 0; i < length; i += 16) {
+      alphaSourceSIMD = SIMD.Float32x4.div(
+        SIMD.Float32x4(source.data[i + 3], source.data[i + 7], source.data[i + 11], source.data[i + 15]),
+        splat255SIMD
+      );
+
+      alphaDestinationSIMD = SIMD.Float32x4.mul(
+        SIMD.Float32x4.div(
+          SIMD.Float32x4(destination.data[i + 3], destination.data[i + 7], destination.data[i + 11], destination.data[i + 15]),
+          splat255SIMD
+        ),
+        SIMD.Float32x4.sub(SIMD.Float32x4.splat(1), alphaSourceSIMD)
+      );
+
+
+      alphaSIMD             = SIMD.Float32x4.add(alphaSourceSIMD, alphaDestinationSIMD);
+      alphaSourceSIMD       = SIMD.Float32x4.div(alphaSourceSIMD, alphaSIMD);
+      alphaDestinationSIMD  = SIMD.Float32x4.div(alphaDestinationSIMD, alphaSIMD);
+      alphaSIMD             = SIMD.Float32x4.mul(alphaSIMD, splat255SIMD);
+
+      for(let j = i, l = i + 16; j < l; j += 4) {
+        let k = (j - i) >> 2;
+        colorSourceSIMD       = SIMD.Float32x4.mul(
+          SIMD.Float32x4(source.data[j], source.data[j + 1], source.data[j + 2], 255),
+          SIMD.Float32x4.splat(SIMD.Float32x4.extractLane(alphaSourceSIMD, k))
+        );
+
+        colorDestinationSIMD  = SIMD.Float32x4.mul(
+          SIMD.Float32x4(destination.data[j], destination.data[j + 1], destination.data[j + 2], 255),
+          SIMD.Float32x4.splat(SIMD.Float32x4.extractLane(alphaDestinationSIMD, k))
+        );
+
+        resultSIMD = SIMD.Float32x4.add(colorSourceSIMD, colorDestinationSIMD);
+
+        destination.data[j] = SIMD.Float32x4.extractLane(resultSIMD, 0);
+        destination.data[j + 1] = SIMD.Float32x4.extractLane(resultSIMD, 1);
+        destination.data[j + 2] = SIMD.Float32x4.extractLane(resultSIMD, 2);
+        destination.data[j + 3] = SIMD.Float32x4.extractLane(alphaSIMD, k);
+      }
+    }
+
+    return destination;
+  }
 
 }
 

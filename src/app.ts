@@ -190,7 +190,6 @@ export class AutoTile extends ImagePart {
 
   static fromTemplate(tile: Tile, template: ImagePart): AutoTile {
     let canvas = new Canvas(Tile.halfWidth * 20, Tile.halfHeight);
-
     for(let y = 0; y < 4; y++) {
       for(let x = 0; x < 4; x++) {
         canvas.putImageResource(
@@ -339,7 +338,7 @@ export class AutoTileHelper {
     let imageResource: ImageResource = AutoTileHelper.buildTileCache.get(autoTiles);
     if(imageResource) { return imageResource; }
 
-    let imageData = new ImageData(Tile.width, Tile.height);
+    let canvas = new Canvas(Tile.width, Tile.height);
 
     let ordered: SortedArray<AutoTile> = new SortedArray<AutoTile>(AutoTileHelper.autoTileComparisonFunction);
     let autoTile: AutoTile;
@@ -385,18 +384,21 @@ export class AutoTileHelper {
               }
             }
 
-            Compositing.apply(
-              Compositing.sourceOver, orderedAutoTile.image.imageData, imageData,
+            canvas.ctx.drawImage(
+              orderedAutoTile.image.resource,
               orderedAutoTile.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
-              x * Tile.halfWidth, y * Tile.halfHeight
+              x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
             );
           }
         }
       }
     }
 
-    let imageResource: ImageResource = new ImageResource();
-    imageResource.imageData = imageData;
+    // let imageResource: ImageResource = new ImageResource();
+    // imageResource.imageData = canvas.getImageData();
+    let imageResource = canvas.toImageResource();
+    // debugger;
+
     AutoTileHelper.buildTileCache.set(autoTiles, imageResource);
     return imageResource;
   }
@@ -463,50 +465,54 @@ window.addEventListener('load', () => {
       './assets/images/other/destination.png'
     ]).then((resources: ImageResource[]) => {
       let applyFilter = (filterName: string, source: ImageResource, destination: ImageResource) => {
+        let x = 0;
+        let y = 0;
         let filter = Compositing.get(filterName);
         let copy = ImageDataHelper.copy(destination.imageData);
         let canvas_0 = Canvas.fromImageResource(
           ImageResource.fromImageData(
-            Compositing.apply(filter, source.imageData, copy, void 0, void 0, void 0, void 0, 60, 60)
+            Compositing.apply(filter, source.imageData, copy, void 0, void 0, void 0, void 0, x, y)
+            // Compositing.SIMDSourceOver(source.imageData, copy)
           )
         ).append(document.body);
 
 
-        // let t1 = Date.now();
-        // for(let i = 0; i < 1000; i++) {
-        //   Compositing.apply(filter, source.imageData, copy);
-        // }
-        // let t2 = Date.now();
-        // console.log('IMAGEDATA TIME', t2 - t1);
+        let t1 = Date.now();
+        for(let i = 0; i < 100; i++) {
+          Compositing.apply(filter, source.imageData, copy);
+          // Compositing.SIMDSourceOver(source.imageData, copy);
+        }
+        let t2 = Date.now();
+        console.log('IMAGEDATA TIME', t2 - t1);
 
         let canvas_1 = new Canvas(source.width, source.height);
         canvas_1.ctx.drawImage(destination.resource, 0, 0);
         canvas_1.ctx.globalCompositeOperation = filterName;
-        canvas_1.ctx.drawImage(source.resource, 60, 60);
+        canvas_1.ctx.drawImage(source.resource, x, y);
         canvas_1.append(document.body);
 
         ImageDataHelper.distance(canvas_0.getImageData(), canvas_1.getImageData());
 
-        // canvas_1.ctx.globalCompositeOperation = filterName;
-        // t1 = Date.now();
-        // for(let i = 0; i < 1000; i++) {
-        //   canvas_1.ctx.drawImage(source.resource, 0, 0);
-        // }
-        // t2 = Date.now();
-        // console.log('CANVAS TIME', t2 - t1);
+        canvas_1.ctx.globalCompositeOperation = filterName;
+        t1 = Date.now();
+        for(let i = 0; i < 100; i++) {
+          canvas_1.ctx.drawImage(source.resource, 0, 0);
+        }
+        t2 = Date.now();
+        console.log('CANVAS TIME', t2 - t1);
       };
 
       [
         'source-over',
-        'destination-over',
-        'source-in',
-        'destination-in',
-        'source-out',
-        'destination-out',
-        'source-atop',
-        'destination-atop',
-        'xor',
-        'lighter',
+        // 'destination-over',
+        // 'source-in',
+        // 'destination-in',
+        // 'source-out',
+        // 'destination-out',
+        // 'source-atop',
+        // 'destination-atop',
+        // 'xor',
+        // 'lighter',
       ].forEach((filterName: string) => {
         console.log(filterName);
         applyFilter(filterName, resources[1], resources[0]);
@@ -575,8 +581,7 @@ window.addEventListener('load', () => {
 
   };
 
-  // compositionTest();
-
+  // return compositionTest();
 
   ResourceLoader.loadMany([
     './assets/images/originals/01.png',
@@ -594,13 +599,12 @@ window.addEventListener('load', () => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
 
-
     let tiles: any = {
       grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),
       rock_0: new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency(),
       sand_0: new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency(),
       sand_1: new Tile(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency(),
-      earth_0: new Tile(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency(),
+      earth_0: new Tile(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency()
     };
 
     let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
@@ -650,7 +654,7 @@ window.addEventListener('load', () => {
 
     let map = randomMapBuilder(
       [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0, autoTiles.earth_0],
-      10, 10
+      100, 100
       // Math.floor(window.innerWidth / Tile.width) + 1,
       // Math.floor(window.innerHeight / Tile.height) + 1
     );

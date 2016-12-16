@@ -30,18 +30,20 @@ export class Canvas {
     return this;
   }
 
-  append(parent: Element): this {
+  append(parent: Element = document.body): this {
     parent.appendChild(this.canvas);
     return this;
   }
 
 
   toImageResource(): ImageResource {
-    let image = new ImageResource();
-    image._width = 0;
-    image._height = 0;
-    image.resource.src = this.canvas.toDataURL();
-    return image;
+    // let image = new ImageResource();
+    // image._width = 0;
+    // image._height = 0;
+    // image.resource.src = this.canvas.toDataURL();
+    // return image;
+
+    return ImageResource.fromImageData(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
   }
 
   putImageResource(imageResource: ImageResource, sx: number = 0, sy: number = 0, sw: number = imageResource.width, sh: number = imageResource.height, dx: number = 0, dy: number = 0): this {
@@ -53,7 +55,7 @@ export class Canvas {
     if(imageResource._resource) {
       this.ctx.drawImage(imageResource._resource, sx, sy, sw, sh, dx, dy, sw, sh);
     } else if(imageResource._imageData) {
-      this.ctx.putImageData(imageResource._imageData, dx, dy, sx, sy, sw, sh);
+      this.ctx.putImageData(imageResource._imageData, dx - sx, dy - sy, sx, sy, sw, sh);
     }
     return this;
   }
