@@ -2,12 +2,12 @@ export class DeepMap<T> {
   public map: any;
 
   constructor() {
-    this.map = new Map();
+    this.map = new Map<any, any>();
   }
 
   set(args: any[], value: T): this {
-    let map: Map = this.map;
-    let childMap: Map;
+    let map: Map<any, any> = this.map;
+    let childMap: Map<any, any>;
     let arg: any;
 
     for(let i = 0; i < args.length - 1; i++) {
@@ -25,8 +25,8 @@ export class DeepMap<T> {
   }
 
   get(args: any[]): T {
-    let map: Map = this.map;
-    let childMap: Map;
+    let map: Map<any, any> = this.map;
+    let childMap: Map<any, any>;
     let arg: any;
 
     for(let i = 0; i < args.length - 1; i++) {
@@ -42,8 +42,8 @@ export class DeepMap<T> {
   }
 
   has(args: any[]): boolean {
-    let map: Map = this.map;
-    let childMap: Map;
+    let map: Map<any, any> = this.map;
+    let childMap: Map<any, any>;
     let arg: any;
 
     for(let i = 0; i < args.length - 1; i++) {
@@ -59,8 +59,8 @@ export class DeepMap<T> {
   }
 
   delete(args: any[]): boolean {
-    let map: Map = this.map;
-    let childMap: Map;
+    let map: Map<any, any> = this.map;
+    let childMap: Map<any, any>;
     let arg: any;
 
     for(let i = 0; i < args.length - 1; i++) {

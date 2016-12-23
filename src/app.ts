@@ -396,7 +396,7 @@ export class AutoTileHelper {
 
     // let imageResource: ImageResource = new ImageResource();
     // imageResource.imageData = canvas.getImageData();
-    let imageResource = canvas.toImageResource();
+    imageResource = canvas.toImageResource();
     // debugger;
 
     AutoTileHelper.buildTileCache.set(autoTiles, imageResource);
@@ -476,14 +476,33 @@ window.addEventListener('load', () => {
           )
         ).append(document.body);
 
+        Compositing.initWorker(4, './classes/imageData.worker.js');
+        Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
+          Canvas.fromImageResource(
+            ImageResource.fromImageData(destinationImageData)
+          ).append(document.body);
+        }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
 
+
+        let promises: Promise<any>[] = [];
         let t1 = Date.now();
         for(let i = 0; i < 100; i++) {
-          Compositing.apply(filter, source.imageData, copy);
+          // Compositing.apply(filter, source.imageData, copy);
           // Compositing.SIMDSourceOver(source.imageData, copy);
+
+          promises.push(new Promise((resolve:any, reject:any) => {
+            Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
+              resolve();
+            }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
+          }));
         }
+        Promise.all(promises).then(() => {
+          let t2 = Date.now();
+          console.log('IMAGEDATA TIME', t2 - t1);
+        });
         let t2 = Date.now();
         console.log('IMAGEDATA TIME', t2 - t1);
+        return;
 
         let canvas_1 = new Canvas(source.width, source.height);
         canvas_1.ctx.drawImage(destination.resource, 0, 0);
@@ -598,6 +617,7 @@ window.addEventListener('load', () => {
   ], (index: number, total: number) => {
     console.log(Math.round((index + 1) / total * 100 ) + '%');
   }).then((resources: AsyncResource[]) => {
+
 
     let tiles: any = {
       grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),

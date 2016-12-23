@@ -41,13 +41,30 @@ gulp.task('browserify', ['build.js'], function() {
     .pipe(gulp.dest('dist'));
 });
 
+gulp.task('browserify-worker', ['build.js'], function() {
+  // let bundle = null;
+  //
+  //
+  // try {
+  //   bundle = browserify('dist/app.js').bundle();
+  // } else {
+  //
+  // }
+
+  return browserify('dist/classes/imageData.worker.js')
+    .bundle()
+    .on('error', gutil.log)
+    .pipe(source('imageData.worker.js'))
+    .pipe(gulp.dest('dist/classes'));
+});
+
 gulp.task('build.html', () => {
   return gulp.src(SRC_OTHER_FILES)
     .pipe(gulp.dest('dist'));
 });
 
 
-gulp.task('watch', ['build.js', 'build.html', 'browserify'], () => {
-  gulp.watch(path.join(SRC_DIR, '**'), ['build.js', 'build.html', 'browserify']);
+gulp.task('watch', ['build.js', 'build.html', 'browserify', 'browserify-worker'], () => {
+  gulp.watch(path.join(SRC_DIR, '**'), ['build.js', 'build.html', 'browserify', 'browserify-worker']);
 });
 

@@ -1,6 +1,43 @@
 export declare type CompositingFunction = (source: ImageData, sourceIndex: number, destination: ImageData, destinationIndex: number) => void;
 
 declare const SIMD: any;
+declare const WorkerGlobalScope: any;
+
+declare type WorkerCallback = ((source: ImageData, destination: ImageData) => any);
+
+export class CompositingWorker {
+  public worker: Worker;
+  public messageID: number = -1;
+  public workerCallbacks: Map<number, WorkerCallback> = new Map<number, WorkerCallback>();
+
+  constructor(workerPath: string) {
+    this.worker = new Worker(workerPath);
+    this.worker.addEventListener('message', (event: MessageEvent) => {
+      let callback: WorkerCallback = this.workerCallbacks.get(event.data[0]);
+      if(callback) {
+        callback(event.data[2], event.data[3]);
+        this.workerCallbacks.delete(event.data[0]);
+      }
+    }, false);
+  }
+
+  apply(
+    callback: WorkerCallback,
+    filterFunctionName: string,
+    source: ImageData, destination?: ImageData,
+    sx?: number, sy?: number, sw?: number, sh?: number,
+    dx?: number, dy?: number
+  ) {
+    this.messageID++;
+    this.workerCallbacks.set(this.messageID, callback);
+    this.worker.postMessage(
+      [this.messageID, filterFunctionName, source, destination, sx, sy, sw, sh, dx, dy],
+      [source.data.buffer, destination.data.buffer]
+    );
+  }
+}
+
+
 
 export class Compositing {
 
@@ -218,6 +255,37 @@ export class Compositing {
     }
 
     return destination;
+  }
+
+
+  static workers: CompositingWorker[] = [];
+  static workersIndex: number = 0;
+
+  static initWorker(threads: number = 4, workerPath: string = 'imageData.worker.js') {
+    if(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+      self.addEventListener('message', (event: MessageEvent) => {
+        Compositing.apply(Compositing.get(event.data[1]), event.data[2], event.data[3], event.data[4], event.data[5], event.data[6], event.data[7], event.data[8], event.data[9]);
+        (<any>self).postMessage(event.data, [event.data[2].data.buffer, event.data[3].data.buffer]);
+      }, false);
+    } else {
+      for(let i = 0; i < threads; i++) {
+        let worker: CompositingWorker = new CompositingWorker(workerPath);
+        Compositing.workers.push(worker);
+      }
+    }
+  }
+
+
+
+  static workerApply(
+    callback: WorkerCallback,
+    filterFunctionName: string,
+    source: ImageData, destination?: ImageData,
+    sx?: number, sy?: number, sw?: number, sh?: number,
+    dx?: number, dy?: number
+  ) {
+    this.workersIndex = (this.workersIndex + 1) % this.workers.length;
+    this.workers[this.workersIndex].apply(callback, filterFunctionName, source, destination, sx, sy, sw, sh, dx, dy);
   }
 
 
