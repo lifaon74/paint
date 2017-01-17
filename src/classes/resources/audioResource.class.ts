@@ -1,4 +1,5 @@
 import { AsyncResource } from './asyncResource.class';
+import { ResourceHelper } from './resourceHelper.class';
 
 // https://developer.mozilla.org/fr/docs/Web/API/Web_Audio_API
 // https://developer.mozilla.org/fr/docs/Web/API/AudioListener
@@ -20,15 +21,50 @@ export class AudioResource extends AsyncResource {
   }
 
   load(source: string): Promise<AsyncResource> {
-    return super.load(source, 'loadeddata');
+    switch(this.canPlaySource(source)) {
+      case 'probably':
+      case 'maybe':
+        return super.load(source, 'loadeddata');
+      case '':
+      default:
+        return Promise.reject(new Error('Can\'t load this extension'));
+    }
+  }
+
+  loadData(source: string): any {
+    return new Promise((resolve:any, reject:any) => {
+      let request = new XMLHttpRequest();
+      request.open('GET', source, true);
+      request.responseType = 'arraybuffer';
+
+      let context = new AudioContext();
+
+      let onLoad = () => {
+        request.removeEventListener('load', onLoad, false);
+
+        context.decodeAudioData(request.response).then((buffer: AudioBuffer) => {
+          let source: AudioBufferSourceNode = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          source.start(0);
+        });
+      };
+
+      request.addEventListener('load', onLoad, false);
+      request.send();
+    });
   }
 
   set src(source: string) {
     this.resource.src = source;
-    // this.resource.preload = 'auto';
+    this.resource.preload = 'auto';
     // this.resource.load();
     // this.resource.volume = 1;
     // this.resource.play();
+  }
+
+  canPlaySource(source: string): string {
+    return this.resource.canPlayType(ResourceHelper.extensionToMimeType(ResourceHelper.pathToExtension(source)));
   }
 
   play() {

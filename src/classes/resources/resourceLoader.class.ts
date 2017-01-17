@@ -1,35 +1,48 @@
 import { AudioResource } from './audioResource.class';
 import { ImageResource } from './imageResource.class';
 import { AsyncResource } from './asyncResource.class';
+import { ResourceHelper } from './resourceHelper.class';
 
-declare type progressCallback = (index?: number, total?: number, source?: string, resource?: AsyncResource) => void;
+declare type progressCallback = (index?: number, total?: number, resource?: AsyncResource) => void;
 
 export abstract class ResourceLoader {
 
   static load(source: string): Promise<AsyncResource> {
-    let extension = /[^.]*\.([^.]+)$/.exec(source);
-    switch(extension[1]) {
+    switch(ResourceHelper.pathToExtension(source)) {
       case 'png':
       case 'jpg':
       case 'svg':
         return new ImageResource().load(source);
       case 'mp3':
+      case 'ogg':
         return new AudioResource().load(source);
       default:
-        return null;
+        return Promise.reject(new Error('Invalid resource extension'));
     }
   }
 
-  static loadMany(sources: string[], progress: progressCallback = (() => { /* noop */})): Promise<AsyncResource[]> {
+  static loadWithAlternatives(sources: string[], index: number = 0): Promise<AsyncResource> {
+    if(index >= sources.length) {
+      return Promise.reject(new Error('Invalid resource path ' + JSON.stringify(sources)));
+    } else {
+      return ResourceLoader.load(sources[index]).catch(() => {
+        return ResourceLoader.loadWithAlternatives(sources, index + 1);
+      });
+    }
+  }
+
+  static loadMany(sources: string[][], progress: progressCallback = (() => { /* noop */})): Promise<AsyncResource[]> {
     let promises: Promise<AsyncResource>[] = [];
     let index: number = 0;
-    let source: string;
+    let sourceAlternatives: string[];
     for(let i = 0; i < sources.length; i++) {
-      source = sources[i];
-      promises.push(ResourceLoader.load(source).then((resource: AsyncResource) => {
-        progress(index++, sources.length, source, resource);
-        return resource;
-      }));
+      sourceAlternatives = sources[i];
+      promises.push(
+        ResourceLoader.loadWithAlternatives(sourceAlternatives).then((resource: AsyncResource) => {
+          progress(index++, sources.length, resource);
+          return resource;
+        })
+      );
     }
     return Promise.all(promises);
   }

@@ -15,8 +15,6 @@ export class ImageResource extends AsyncResource {
     return imageResource;
   }
 
-  //public resource: HTMLImageElement;
-
   public _width: number;
   public _height: number;
 
@@ -129,6 +127,18 @@ export class ImageResource extends AsyncResource {
     this._hasTransparency = null;
   }
 
+
+  isFullyTransparent(): boolean {
+    let imageData: ImageData = this.imageData;
+    if(imageData) {
+      for(let i = 0; i < imageData.data.length; i += 4) {
+        if(imageData.data[i + 3] !== 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
 
   hasTransparency(): boolean {
     if(this._hasTransparency === null) {

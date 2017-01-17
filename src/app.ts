@@ -258,6 +258,9 @@ export class AutoTileHelper {
     return 0;
   }
 
+  /**
+   * Convert an  2x3 Tiles autoTile into a 2x2
+   */
   static extractAutoTileTemplate(imagePart: ImagePart): ImageResource {
     let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
 
@@ -289,6 +292,30 @@ export class AutoTileHelper {
     return canvas.toImageResource();
   }
 
+  /**
+   * Convert an  2x5 Tiles autoTile into a 2x4
+   */
+  static extractAutoBorderTileTemplate(imagePart: ImagePart): ImageResource {
+    let canvas = new Canvas(Tile.twoWidth, Tile.twoWidth * 2);
+
+    canvas.putImageResource(
+      AutoTileHelper.extractAutoTileTemplate(imagePart),
+      0, 0, Tile.twoWidth, Tile.twoHeight
+    );
+
+    canvas.putImageResource(
+      imagePart.image,
+      imagePart.sx, imagePart.sy + Tile.height * 3, Tile.twoWidth, Tile.twoHeight,
+      0, Tile.twoHeight
+    );
+
+    return canvas.toImageResource();
+  }
+
+
+  /**
+   * Convert an rgb alphaMap to a alpha chanel alphaMap
+   */
   static shadesOfGreyToAlphaMap(imagePart: ImagePart): ImageResource {
     let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
 
@@ -300,7 +327,7 @@ export class AutoTileHelper {
     let imageData: ImageData = canvas.getImageData();
     for(let i = 0; i < imageData.data.length; i += 4) {
       imageData.data[i + 3] = (imageData.data[i + 0] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
-      imageData.data[i + 0] = 0;
+      imageData.data[i    ] = 0;
       imageData.data[i + 1] = 0;
       imageData.data[i + 2] = 0;
     }
@@ -308,6 +335,7 @@ export class AutoTileHelper {
     imageResource.imageData = imageData;
     return imageResource;
   }
+
 
   static generateAutoTileFromJunctionTemplates(tile: Tile, alphaMap: ImagePart, underLayer: ImagePart): AutoTile {
     let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
@@ -405,7 +433,11 @@ export class AutoTileHelper {
 
 }
 
-
+/**
+ * AutoBlock
+ *  - top: AutoTile
+ *  - content: AutoBorderTile
+ */
 
 export class Block {
   constructor(
@@ -461,8 +493,8 @@ window.addEventListener('load', () => {
 
   let compositionTest = () => {
     ResourceLoader.loadMany([
-      './assets/images/other/source.png',
-      './assets/images/other/destination.png'
+      ['./assets/images/other/source.png'],
+      ['./assets/images/other/destination.png']
     ]).then((resources: ImageResource[]) => {
       let applyFilter = (filterName: string, source: ImageResource, destination: ImageResource) => {
         let x = 0;
@@ -603,21 +635,28 @@ window.addEventListener('load', () => {
   // return compositionTest();
 
   ResourceLoader.loadMany([
-    './assets/images/originals/01.png',
-    './assets/images/originals/02.png',
-    './assets/images/originals/03.png',
-    './assets/images/originals/04.png',
-    './assets/images/templates/junctions/grass/grass_alpha_map.png',
-    './assets/images/templates/junctions/grass/grass_under_layer.png',
-    './assets/images/templates/junctions/sand/sand_alpha_map.png',
-    './assets/images/templates/borders/mountain/mountain_alpha_map.png',
-    './assets/images/templates/borders/mountain/mountain_over_layer.png',
-    // './assets/sounds/field_01.mp3',
-    // './assets/sounds/005-Rain01.mp3'
-  ], (index: number, total: number) => {
-    console.log(Math.round((index + 1) / total * 100 ) + '%');
+    ['./assets/images/originals/01.png'],
+    ['./assets/images/originals/02.png'],
+    ['./assets/images/originals/03.png'],
+    ['./assets/images/originals/04.png'],
+    ['./assets/images/templates/junctions/grass/grass_alpha_map.png'],
+    ['./assets/images/templates/junctions/grass/grass_under_layer.png'],
+    ['./assets/images/templates/junctions/sand/sand_alpha_map.png'],
+    ['./assets/images/templates/borders/mountain/mountain_alpha_map.png'],
+    ['./assets/images/templates/borders/mountain/mountain_over_layer.png'],
+    ['./assets/sounds/sample.ogg', './assets/sounds/field_01.mp3'],
+    // ['./assets/sounds/005-Rain01.mp3']
+  ], (index: number, total: number, resource: AsyncResource) => {
+    console.log(Math.round((index + 1) / total * 100 ) + '%', resource.resource.src);
   }).then((resources: AsyncResource[]) => {
+    let global = {};
 
+    let autoBorderTileTemplate: ImageResource = AutoTileHelper.extractAutoBorderTileTemplate(new ImagePart(<ImageResource>resources[3], 64, 10 * 32));
+    Canvas.fromImageResource(autoBorderTileTemplate).append(document.body);
+
+    // Canvas.fromImageResource(<ImageResource>resources[3]).cut(64, 10* 32, 64, 5 * 32).append(document.body);
+
+    return;
 
     let tiles: any = {
       grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),
@@ -674,7 +713,7 @@ window.addEventListener('load', () => {
 
     let map = randomMapBuilder(
       [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0, autoTiles.earth_0],
-      100, 100
+      10, 10
       // Math.floor(window.innerWidth / Tile.width) + 1,
       // Math.floor(window.innerHeight / Tile.height) + 1
     );
@@ -709,6 +748,8 @@ window.addEventListener('load', () => {
     // )).append(document.body);
 
     // audioTest(<AudioResource>resources[7]);
+
+    (<any>window).glob = global;
   });
 
 });

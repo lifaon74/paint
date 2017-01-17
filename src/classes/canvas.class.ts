@@ -37,12 +37,6 @@ export class Canvas {
 
 
   toImageResource(): ImageResource {
-    // let image = new ImageResource();
-    // image._width = 0;
-    // image._height = 0;
-    // image.resource.src = this.canvas.toDataURL();
-    // return image;
-
     return ImageResource.fromImageData(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
   }
 

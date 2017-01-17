@@ -25,15 +25,6 @@ gulp.task('build.js', () => {
 });
 
 gulp.task('browserify', ['build.js'], function() {
-  // let bundle = null;
-  //
-  //
-  // try {
-  //   bundle = browserify('dist/app.js').bundle();
-  // } else {
-  //
-  // }
-
   return browserify('dist/app.js')
     .bundle()
     .on('error', gutil.log)
@@ -42,15 +33,6 @@ gulp.task('browserify', ['build.js'], function() {
 });
 
 gulp.task('browserify-worker', ['build.js'], function() {
-  // let bundle = null;
-  //
-  //
-  // try {
-  //   bundle = browserify('dist/app.js').bundle();
-  // } else {
-  //
-  // }
-
   return browserify('dist/classes/imageData.worker.js')
     .bundle()
     .on('error', gutil.log)
