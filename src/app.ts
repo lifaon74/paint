@@ -667,6 +667,9 @@ window.addEventListener('load', () => {
   }).then((resources: AsyncResource[]) => {
     let global = {};
 
+    // let audio = new AudioResource();
+    // audio.loadData('./assets/sounds/field_01.mp3');
+    // return;
 
     let tiles: any = {
       grass_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency()),
