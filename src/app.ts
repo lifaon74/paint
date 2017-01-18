@@ -137,7 +137,7 @@ export class ImagePart {
 }
 
 
-export class Tile extends ImagePart {
+export class Tile {
   static width: number  = 32;
   static height: number = 32;
   static halfWidth: number  = Tile.width / 2;
@@ -145,26 +145,20 @@ export class Tile extends ImagePart {
   static twoWidth: number  = Tile.width * 2;
   static twoHeight: number = Tile.height * 2;
 
-  constructor(
-    image: ImageResource,
-    sx: number,
-    sy: number
-  ) {
-    super(image, sx, sy);
-  }
+  constructor(public imagePart: ImagePart) {}
 
   // deprecated
   draw(ctx: CanvasRenderingContext2D, dx: number, dy: number) {
     ctx.drawImage(
-      this.image.resource,
-      this.sx, this.sy, Tile.width, Tile.height,
+      this.imagePart.image.resource,
+      this.imagePart.sx, this.imagePart.sy, Tile.width, Tile.height,
       dx *  Tile.width, dy * Tile.height, Tile.width, Tile.height
     );
   }
 }
 
 
-export class AutoTile extends ImagePart {
+export class AutoTile  {
   static sections: number = 20;
 
   static templateToAutoTileIndexes: number[] = [
@@ -180,7 +174,6 @@ export class AutoTile extends ImagePart {
     14, 11, 15, 10,
      4,  1,  5,  0
   ];
-
 
   static autoTileToTemplateIndexes: number[] =
     AutoTile.templateToAutoTileIndexes.map((value: number, index: number) => AutoTile.templateToAutoTileIndexes.indexOf(index));
@@ -202,31 +195,28 @@ export class AutoTile extends ImagePart {
 
     for(let i = 0; i < 4; i++) {
       canvas.putImageResource(
-        tile.image,
-        tile.sx + (i % 2) * Tile.halfWidth, tile.sy + Math.floor(i / 2) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
+        tile.imagePart.image,
+        tile.imagePart.sx + (i % 2) * Tile.halfWidth, tile.imagePart.sy + Math.floor(i / 2) * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
         (i * 5 + 4) * Tile.halfWidth, 0
       );
     }
 
-    let autoTile = new AutoTile(canvas.toImageResource(), 0, 0);
-    autoTile.hasTransparencyCached = tile.hasTransparencyCached;
+    let autoTile = new AutoTile(new ImagePart(canvas.toImageResource(), 0, 0));
+    autoTile.imagePart.hasTransparencyCached = tile.imagePart.hasTransparencyCached;
     return autoTile;
   }
 
   constructor(
-    image: ImageResource,
-    sx: number,
-    sy: number,
+    public imagePart: ImagePart,
     public zIndex: number = 0
-  ) {
-    super(image, sx, sy);
-  }
+  ) {}
 
   // deprecated
   draw(ctx: CanvasRenderingContext2D, index: number, dx: number, dy: number) {
+    console.warn('AutoTile.draw deprecated');
     ctx.drawImage(
-      this.image.resource,
-      this.sx + index * Tile.halfWidth, this.sy, Tile.halfWidth, Tile.halfHeight,
+      this.imagePart.image.resource,
+      this.imagePart.sx + index * Tile.halfWidth, this.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
       dx *  Tile.halfWidth, dy * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
     );
   }
@@ -236,8 +226,8 @@ export class AutoTile extends ImagePart {
     for(let i = 0; i < 16; i++) {
       let j = inverted ? AutoTile.autoTileToTemplateInvertedIndexes[i] : AutoTile.autoTileToTemplateIndexes[i];
       canvas.putImageResource(
-        this.image,
-        this.sx + Math.floor(i * 1.25) * Tile.halfWidth, this.sy, Tile.halfWidth, Tile.halfHeight,
+        this.imagePart.image,
+        this.imagePart.sx + Math.floor(i * 1.25) * Tile.halfWidth, this.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
         (j % 4) * Tile.halfWidth, Math.floor(j / 4) * Tile.halfHeight
       );
     }
@@ -259,7 +249,7 @@ export class AutoTileHelper {
   }
 
   /**
-   * Convert an  2x3 Tiles autoTile into a 2x2
+   * Convert an  2x3 tiles autoTile into a 2x2
    */
   static extractAutoTileTemplate(imagePart: ImagePart): ImageResource {
     let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
@@ -293,7 +283,7 @@ export class AutoTileHelper {
   }
 
   /**
-   * Convert an  2x5 Tiles autoTile into a 2x4
+   * Convert an  2x5 tiles autoTile into a 2x4
    */
   static extractAutoBorderTileTemplate(imagePart: ImagePart): ImageResource {
     let canvas = new Canvas(Tile.twoWidth, Tile.twoWidth * 2);
@@ -337,29 +327,6 @@ export class AutoTileHelper {
   }
 
 
-  static generateAutoTileFromJunctionTemplates(tile: Tile, alphaMap: ImagePart, underLayer: ImagePart): AutoTile {
-    let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
-
-    for(let y = 0; y < 2; y++) {
-      for(let x = 0; x < 2; x++) {
-        canvas.putImageResource(
-          tile.image,
-          tile.sx, tile.sy, Tile.width, Tile.width,
-          x * Tile.width, y * Tile.height
-        );
-      }
-    }
-
-    canvas.ctx.globalCompositeOperation = 'destination-in';
-    canvas.ctx.drawImage(alphaMap.image.resource, 0, 0);
-    canvas.ctx.globalCompositeOperation = 'destination-over';
-    canvas.ctx.drawImage(underLayer.image.resource, 0, 0);
-    canvas.ctx.globalCompositeOperation = 'source-over';
-
-    return AutoTile.fromTemplate(tile, new ImagePart(canvas.toImageResource(), 0, 0));
-  }
-
-
   // topLeftAutoTile: AutoTile, topRightAutoTile: AutoTile, bottomLeftAutoTile: AutoTile, bottomRightAutoTile: AutoTile
   static buildTileCache = new DeepMap<ImageResource>();
   static buildTile(autoTiles: [AutoTile, AutoTile, AutoTile, AutoTile]): ImageResource {
@@ -391,7 +358,7 @@ export class AutoTileHelper {
           a = i ^ 0b11;
           offset = 5 * a;
 
-          let j = autoTile.hasTransparencyCached ? 0 : ordered.indexOf(autoTile);
+          let j = autoTile.imagePart.hasTransparencyCached ? 0 : ordered.indexOf(autoTile);
           for(; j < ordered.array.length; j++) {
             orderedAutoTile = ordered.array[j];
             if(orderedAutoTile === autoTile) {
@@ -413,8 +380,8 @@ export class AutoTileHelper {
             }
 
             canvas.ctx.drawImage(
-              orderedAutoTile.image.resource,
-              orderedAutoTile.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.sy, Tile.halfWidth, Tile.halfHeight,
+              orderedAutoTile.imagePart.image.resource,
+              orderedAutoTile.imagePart.sx + (index + offset) * Tile.halfWidth, orderedAutoTile.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
               x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
             );
           }
@@ -432,6 +399,55 @@ export class AutoTileHelper {
   }
 
 }
+
+
+export class JunctionAutoTile {
+  public buildTileCache: Map<Tile, AutoTile> = new Map<Tile, AutoTile>();
+
+  constructor(
+    public alphaMap: ImagePart,
+    public underLayer: ImagePart
+  ) {}
+
+  /**
+   * Apply junction pattern to a Tile
+   */
+  build(tile: Tile): AutoTile {
+    let autoTile: AutoTile = this.buildTileCache.get(tile);
+    if(autoTile) { return autoTile; }
+
+    let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
+
+    for(let y = 0; y < 2; y++) {
+      for(let x = 0; x < 2; x++) {
+        canvas.putImageResource(
+          tile.imagePart.image,
+          tile.imagePart.sx, tile.imagePart.sy, Tile.width, Tile.width,
+          x * Tile.width, y * Tile.height
+        );
+      }
+    }
+
+    canvas.ctx.globalCompositeOperation = 'destination-in';
+    canvas.ctx.drawImage(this.alphaMap.image.resource, 0, 0);
+    canvas.ctx.globalCompositeOperation = 'destination-over';
+    canvas.ctx.drawImage(this.underLayer.image.resource, 0, 0);
+    canvas.ctx.globalCompositeOperation = 'source-over';
+
+    autoTile = AutoTile.fromTemplate(tile, new ImagePart(canvas.toImageResource(), 0, 0));
+    this.buildTileCache.set(tile, autoTile);
+    return autoTile;
+  }
+}
+
+
+export class BorderAutoTile {
+  constructor(
+    public top: AutoTile,
+    public front: AutoTile
+  ) {}
+}
+
 
 /**
  * AutoBlock
@@ -651,23 +667,20 @@ window.addEventListener('load', () => {
   }).then((resources: AsyncResource[]) => {
     let global = {};
 
-    let autoBorderTileTemplate: ImageResource = AutoTileHelper.extractAutoBorderTileTemplate(new ImagePart(<ImageResource>resources[3], 64, 10 * 32));
-    Canvas.fromImageResource(autoBorderTileTemplate).append(document.body);
-
-    // Canvas.fromImageResource(<ImageResource>resources[3]).cut(64, 10* 32, 64, 5 * 32).append(document.body);
-
-    return;
 
     let tiles: any = {
-      grass_0: new Tile(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency(),
-      rock_0: new Tile(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency(),
-      sand_0: new Tile(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency(),
-      sand_1: new Tile(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency(),
-      earth_0: new Tile(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency()
+      grass_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency()),
+      rock_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency()),
+      sand_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency()),
+      sand_1: new Tile(new ImagePart(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency()),
+      earth_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency())
     };
 
     let autoTileTemplate: ImageResource = AutoTileHelper.extractAutoTileTemplate(new ImagePart(<ImageResource>resources[0], 64 * 2, 0));
     // Canvas.fromImageResource(autoTileTemplate).append(document.body);
+
+    let borderAutoTileTemplate: ImageResource = AutoTileHelper.extractAutoBorderTileTemplate(new ImagePart(<ImageResource>resources[3], 64, 10 * 32));
+    // Canvas.fromImageResource(borderAutoTileTemplate).append(document.body);
 
     let alphaMaps: any = {
       grass: new ImagePart(AutoTileHelper.shadesOfGreyToAlphaMap(new ImagePart(<ImageResource>resources[4], 0, 0)), 0, 0),
@@ -677,7 +690,6 @@ window.addEventListener('load', () => {
 
     // Canvas.fromImageResource(alphaMaps.mountain.image).append(document.body);
 
-
     let grassUnderLayerJunction = new ImagePart(<ImageResource>resources[5], 0, 0);
     let sandUnderLayerJunction: ImagePart = new ImagePart(
       ImageResource.fromImageData(ImageDataHelper.changeOpacity(ImageDataHelper.copy(alphaMaps.sand.image.imageData), 0.6)),
@@ -685,25 +697,25 @@ window.addEventListener('load', () => {
 
     let mountainOverLayerJunction = new ImagePart(<ImageResource>resources[8], 0, 0);
 
-    let autoTiles: any = {
-      sand_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
-        tiles.sand_0, alphaMaps.sand, sandUnderLayerJunction
-      ),
-      sand_1: AutoTileHelper.generateAutoTileFromJunctionTemplates(
-        tiles.sand_1, alphaMaps.sand, sandUnderLayerJunction
-      ),
-      grass_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
-        tiles.grass_0, alphaMaps.grass, grassUnderLayerJunction
-      ),
-      rock_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
-        tiles.rock_0, alphaMaps.grass, grassUnderLayerJunction
-      ),
-      earth_0: AutoTileHelper.generateAutoTileFromJunctionTemplates(
-        tiles.earth_0, alphaMaps.grass, grassUnderLayerJunction
-      ),
+    // let borderAutoTile = new BorderAutoTile();
+
+    return;
+
+
+    let junctions: { [key:string]: JunctionAutoTile } = {
+      sand: new JunctionAutoTile(alphaMaps.sand, sandUnderLayerJunction),
+      grass: new JunctionAutoTile(alphaMaps.grass, grassUnderLayerJunction),
     };
 
-    [autoTiles.rock_0, autoTiles.earth_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0]
+    let autoTiles: { [key:string]: AutoTile } = {
+      sand_0: junctions['sand'].build(tiles.sand_0),
+      sand_1: junctions['sand'].build(tiles.sand_1),
+      grass_0: junctions['grass'].build(tiles.grass_0),
+      rock_0: junctions['grass'].build(tiles.rock_0),
+      earth_0: junctions['grass'].build(tiles.earth_0)
+    };
+
+    [autoTiles['rock_0'], autoTiles['earth_0'], autoTiles['sand_0'], autoTiles['sand_1'], autoTiles['grass_0']]
       .forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
 
     // let autoTile: AutoTile = autoTiles.sand_1;
@@ -712,7 +724,7 @@ window.addEventListener('load', () => {
     // Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
 
     let map = randomMapBuilder(
-      [autoTiles.rock_0, autoTiles.sand_0, autoTiles.sand_1, autoTiles.grass_0, autoTiles.earth_0],
+      [autoTiles['rock_0'], autoTiles['sand_0'], autoTiles['sand_1'], autoTiles['grass_0'], autoTiles['earth_0']],
       10, 10
       // Math.floor(window.innerWidth / Tile.width) + 1,
       // Math.floor(window.innerHeight / Tile.height) + 1
@@ -725,8 +737,8 @@ window.addEventListener('load', () => {
     AutoTileHelper.buildTileCache.clear();
 
     let tileImageResource: ImageResource = AutoTileHelper.buildTile([
-      autoTiles.rock_0, autoTiles.rock_0,
-      autoTiles.sand_0, autoTiles.rock_0
+      autoTiles['rock_0'], autoTiles['rock_0'],
+      autoTiles['sand_0'], autoTiles['rock_0']
     ]);
 
     // Canvas.fromImageResource(

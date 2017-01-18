@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/paint.js",
   "scripts": {
-    "start": "npm run browserify",
+    "start": "gulp watch",
     "browserify": "browserify dist/movement.js -o dist/browser.bundled.js",
     "browserify-no-process": "browserify dist/movement.js --insert-global-vars __filename,__dirname,Buffer,global -o dist/browser.bundled.js"
   },
