@@ -13,6 +13,14 @@ export class AudioResource extends AsyncResource {
     return new AudioResource().load(source);
   }
 
+  static canPlayType(type: string): string {
+    return new Audio().canPlayType(type);
+  }
+
+  static canPlaySource(source: string): string {
+    return AudioResource.canPlayType(ResourceHelper.extensionToMimeType(ResourceHelper.pathToExtension(source)));
+  }
+
   resource: HTMLAudioElement;
 
   constructor() {
@@ -21,7 +29,7 @@ export class AudioResource extends AsyncResource {
   }
 
   load(source: string): Promise<AsyncResource> {
-    switch(this.canPlaySource(source)) {
+    switch(AudioResource.canPlaySource(source)) {
       case 'probably':
       case 'maybe':
         return super.load(source, 'loadeddata');
@@ -63,9 +71,7 @@ export class AudioResource extends AsyncResource {
     // this.resource.play();
   }
 
-  canPlaySource(source: string): string {
-    return this.resource.canPlayType(ResourceHelper.extensionToMimeType(ResourceHelper.pathToExtension(source)));
-  }
+
 
   play() {
     this.resource.play();

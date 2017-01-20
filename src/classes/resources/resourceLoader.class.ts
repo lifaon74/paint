@@ -5,6 +5,13 @@ import { ResourceHelper } from './resourceHelper.class';
 
 declare type progressCallback = (index?: number, total?: number, resource?: AsyncResource) => void;
 
+export class ResourceSource {
+  constructor(
+    public name: string,
+    public sources: string[]
+  ) {}
+}
+
 export abstract class ResourceLoader {
 
   static load(source: string): Promise<AsyncResource> {
@@ -25,7 +32,8 @@ export abstract class ResourceLoader {
     if(index >= sources.length) {
       return Promise.reject(new Error('Invalid resource path ' + JSON.stringify(sources)));
     } else {
-      return ResourceLoader.load(sources[index]).catch(() => {
+      return ResourceLoader.load(sources[index]).catch((error) => {
+        // console.warn(error);
         return ResourceLoader.loadWithAlternatives(sources, index + 1);
       });
     }

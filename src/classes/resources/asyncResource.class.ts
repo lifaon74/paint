@@ -1,38 +1,27 @@
+import { EventObject } from '../events.class';
 
-export abstract class AsyncResource {
+export abstract class AsyncResource extends EventObject {
 
-  abstract resource: (HTMLImageElement|HTMLAudioElement);
+  abstract resource: (HTMLImageElement | HTMLAudioElement);
 
   load(source: string, onLoadEventName: string = 'load'): Promise<AsyncResource> {
-    return new Promise((resolve: any, reject: any) => {
-      this.addEventListenerOnce(onLoadEventName, () => {
+    return new Promise<AsyncResource>((resolve: any, reject: any) => {
+      this.addEventListener(onLoadEventName, () => {
         resolve(this);
-      });
-      this.addEventListenerOnce('error', () => {
+      }, { once: true });
+      this.addEventListener('error', () => {
         reject(new Error('Invalid resource path ' + source));
-      });
+      }, { once: true });
       this.src = source;
     });
   }
 
-  addEventListenerOnce(type: string, listener: any, useCapture?: boolean): void {
-    let cb = (event: Event) => {
-      this.removeEventListener(type, cb, useCapture);
-      listener(event);
-    };
-    this.addEventListener(type, cb, useCapture);
+  get _eventTarget(): Element {
+    return this.resource;
   }
 
-  addEventListener(type: string, listener: any, useCapture?: boolean): void {
-    (<EventTarget>this.resource).addEventListener(type, listener, useCapture);
-  }
-
-  dispatchEvent(event: Event): boolean {
-    return (<EventTarget>this.resource).dispatchEvent(event);
-  }
-
-  removeEventListener(type: string, listener?: any, useCapture?: boolean): void {
-    (<EventTarget>this.resource).removeEventListener(type, listener, useCapture);
+  set _eventTarget(value: Element) {
+    this.resource = <(HTMLImageElement | HTMLAudioElement)>value;
   }
 
   get src(): string {
@@ -42,5 +31,4 @@ export abstract class AsyncResource {
   set src(source: string) {
     this.resource.src = source;
   }
-
 }
