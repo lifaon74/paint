@@ -12,7 +12,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/core-js": "^0.9.35",
-    "@types/node": "^6.0.45",
+    "@types/node": "^7.0.2",
     "browserify": "^13.3.0",
     "gulp": "^3.9.1",
     "gulp-typescript": "^3.1.4",

@@ -24,13 +24,13 @@ export abstract class ResourceLoader {
       case 'ogg':
         return new AudioResource().load(source);
       default:
-        return Promise.reject(new Error('Invalid resource extension'));
+        return <any>Promise.reject(new Error('Invalid resource extension'));
     }
   }
 
   static loadWithAlternatives(sources: string[], index: number = 0): Promise<AsyncResource> {
     if(index >= sources.length) {
-      return Promise.reject(new Error('Invalid resource path ' + JSON.stringify(sources)));
+      return <any>Promise.reject(new Error('Invalid resource path ' + JSON.stringify(sources)));
     } else {
       return ResourceLoader.load(sources[index]).catch((error) => {
         // console.warn(error);

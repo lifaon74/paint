@@ -149,13 +149,26 @@ export class Tile {
   constructor(public imagePart: ImagePart) {}
 
   // deprecated
-  draw(ctx: CanvasRenderingContext2D, dx: number, dy: number) {
-    ctx.drawImage(
-      this.imagePart.image.resource,
-      this.imagePart.sx, this.imagePart.sy, Tile.width, Tile.height,
-      dx *  Tile.width, dy * Tile.height, Tile.width, Tile.height
-    );
+  draw(canvas: Canvas, dx: number, dy: number, inverted: boolean = false) {
+    if(inverted) {
+      for(let y = 0; y < 2; y++) {
+        for(let x = 0; x < 2; x++) {
+          canvas.putImageResource(
+            this.imagePart.image,
+            this.imagePart.sx + x * Tile.halfWidth, this.imagePart.sy + y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
+            dx + Tile.halfWidth - (x * Tile.halfWidth), dy + Tile.halfHeight - (y * Tile.halfHeight)
+          );
+        }
+      }
+    } else {
+      canvas.putImageResource(
+        this.imagePart.image,
+        this.imagePart.sx, this.imagePart.sy, Tile.width, Tile.height,
+        dx, dy
+      );
+    }
   }
+
 }
 
 
@@ -180,6 +193,8 @@ export class AutoTileTemplate  {
     4,  1,  5,  0
   ];
 
+  public junctionAutoTileCache: Map<Tile, JunctionAutoTile> = new Map<Tile, JunctionAutoTile>();
+
   constructor(
     public alphaMap?: ImagePart,
     public underLayer?: ImagePart,
@@ -191,6 +206,18 @@ export class AutoTileTemplate  {
    */
   toAutoTile(tile: Tile): AutoTile {
     return new AutoTile(new ImagePart(this.buildAutoTile(tile), 0, 0));
+  }
+
+  /**
+   * Build and return a JunctionAutoTile
+   */
+  toJunctionAutoTile(tile: Tile, zIndex?: number): JunctionAutoTile {
+    let junctionAutoTile: JunctionAutoTile = this.junctionAutoTileCache.get(tile);
+    if(!junctionAutoTile) {
+      junctionAutoTile = new JunctionAutoTile(new ImagePart(this.buildAutoTile(tile), 0, 0), zIndex);
+      this.junctionAutoTileCache.set(tile, junctionAutoTile);
+    }
+    return junctionAutoTile;
   }
 
   /**
@@ -257,6 +284,23 @@ export class AutoTileTemplate  {
 
 }
 
+
+export class BorderAutoTileTemplate {
+  constructor(
+    public top: AutoTileTemplate,
+    public bottom?: AutoTileTemplate
+  ) {}
+
+  /**
+   * Apply border pattern to a Tile
+   */
+  buildTop(tile: Tile): JunctionAutoTile {
+    return this.top.toJunctionAutoTile(tile);
+  }
+
+}
+
+
 export class AutoTile  {
   static autoTileToTemplateIndexes: number[] =
     AutoTileTemplate.templateToAutoTileIndexes.map((value: number, index: number) => AutoTileTemplate.templateToAutoTileIndexes.indexOf(index));
@@ -281,17 +325,44 @@ export class AutoTile  {
 
 }
 
-
-export class AutoTileHelper {
-
-  static autoTileComparisonFunction(a: AutoTile, b: AutoTile) {
-    // if(a === b) return 0;
-    // if(a === null) return -1;
-    // if(b === null) return 1;
+export class JunctionAutoTile extends AutoTile {
+  static compare(a: JunctionAutoTile, b: JunctionAutoTile) {
     if(a.zIndex < b.zIndex) return -1;
     if(a.zIndex > b.zIndex) return 1;
     return 0;
   }
+
+  // not used
+  static cachedCreate = new DeepMap<JunctionAutoTile>()
+  static create(imagePart: ImagePart, zIndex: number = 0) {
+    let junction: JunctionAutoTile = JunctionAutoTile.cachedCreate.get([imagePart]);
+    if(!junction) {
+      junction = new JunctionAutoTile(imagePart, zIndex);
+      JunctionAutoTile.cachedCreate.set([imagePart], junction);
+    }
+    return junction;
+  }
+
+  constructor(
+    imagePart: ImagePart,
+    public zIndex: number = 0
+  ) {
+    super(imagePart);
+  }
+}
+
+export class AutoBlock {
+
+  constructor(
+    public topJunction: JunctionAutoTile,
+    public border: BorderAutoTileTemplate
+  ) {}
+}
+
+
+
+
+export class AutoTileHelper {
 
   /**
    * Convert an  2x3 tiles autoTile into a 2x2
@@ -372,15 +443,29 @@ export class AutoTileHelper {
   }
 
 
+  static invertTile(tile: Tile): ImageResource {
+    let canvas = new Canvas(Tile.width, Tile.height);
+    for(let y = 0; y < 2; y++) {
+      for(let x = 0; x < 2; x++) {
+        canvas.putImageResource(
+          tile.imagePart.image,
+          tile.imagePart.sx + x * Tile.halfWidth, tile.imagePart.sy + y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight,
+          Tile.halfWidth - (x * Tile.halfWidth), Tile.halfHeight - (y * Tile.halfHeight)
+        );
+      }
+    }
+    return canvas.toImageResource();
+  }
+
   // topLeftAutoTile: AutoTile, topRightAutoTile: AutoTile, bottomLeftAutoTile: AutoTile, bottomRightAutoTile: AutoTile
   static buildTileCache = new DeepMap<ImageResource>();
-  static buildTile(autoTiles: [AutoTile, AutoTile, AutoTile, AutoTile]): ImageResource {
+  static buildTile(autoTiles: [JunctionAutoTile, JunctionAutoTile, JunctionAutoTile, JunctionAutoTile]): ImageResource {
     let imageResource: ImageResource = AutoTileHelper.buildTileCache.get(autoTiles);
     if(imageResource) { return imageResource; }
 
     let canvas = new Canvas(Tile.width, Tile.height);
 
-    let ordered: SortedArray<AutoTile> = new SortedArray<AutoTile>(AutoTileHelper.autoTileComparisonFunction);
+    let ordered: SortedArray<AutoTile> = new SortedArray<AutoTile>(JunctionAutoTile.compare);
     let autoTile: AutoTile;
 
     for(let i = 0; i < autoTiles.length; i++) {
@@ -404,7 +489,7 @@ export class AutoTileHelper {
           offset = 5 * a;
 
           let j = autoTile.imagePart.hasTransparencyCached ? 0 : ordered.indexOf(autoTile);
-          for(; j < ordered.array.length; j++) {
+          for(let length = ordered.array.length; j < length; j++) {
             orderedAutoTile = ordered.array[j];
             if(orderedAutoTile === autoTile) {
               index = 4;
@@ -443,73 +528,38 @@ export class AutoTileHelper {
     return imageResource;
   }
 
-}
 
+  static buildBlock(autoBlocks: AutoBlock[]): ImageResource {
+    // let tileImage = AutoTileHelper.buildTile([autoBlocks[0].topJunction, autoBlocks[1].topJunction, autoBlocks[2].topJunction, autoBlocks[3].topJunction]);
+    let tileImage = AutoTileHelper.buildTile(autoBlocks.map((autoBlock) => {
+      return autoBlock ? autoBlock.topJunction : null;
+    }));
 
+    tileImage = AutoTileHelper.invertTile(new Tile(new ImagePart(tileImage, 0, 0)));
+    let tile = new Tile(new ImagePart(tileImage, 0, 0));
 
-export class JunctionAutoTile extends AutoTile {
-  constructor(
-    imagePart: ImagePart,
-    public zIndex: number = 0
-  ) {
-    super(imagePart);
+    // let autoTile: JunctionAutoTile = autoBlocks[0].border.buildTop(tile);
+    // return autoTile.preview();
+
+    // Canvas.fromImageResource(tileImage).append();
+    // Canvas.fromImageResource(autoBlocks[0].border.buildTop(tile).imagePart.image).append();
+    // Canvas.fromImageResource(autoBlocks[0].border.buildTop(tile).preview()).append();
+
+    // let borderedImage = AutoTileHelper.buildTile([
+    //   autoBlocks[0].border.buildTop(tile),
+    //   autoBlocks[1].border.buildTop(tile),
+    //   autoBlocks[2].border.buildTop(tile),
+    //   autoBlocks[3].border.buildTop(tile)
+    // ]);
+
+    let borderedImage = AutoTileHelper.buildTile(autoBlocks.map((autoBlock) => {
+      return autoBlock ? autoBlock.border.buildTop(tile) : null;
+    }));
+
+    return borderedImage;
   }
 }
 
-export class BorderAutoTileTemplate {
-  public buildTileCache: Map<Tile, AutoTile> = new Map<Tile, AutoTile>();
-
-  constructor(
-    public alphaMap: ImagePart,
-    public overLayer: ImagePart
-  ) {}
-
-  /**
-   * Apply border pattern to a Tile
-   */
-  buildTop(tile: Tile): AutoTile {
-    let autoTile: AutoTile = this.buildTileCache.get(tile);
-    if(autoTile) { return autoTile; }
-
-    let canvas = new Canvas(Tile.twoWidth, Tile.twoHeight);
-
-    for(let y = 0; y < 2; y++) {
-      for(let x = 0; x < 2; x++) {
-        canvas.putImageResource(
-          tile.imagePart.image,
-          tile.imagePart.sx, tile.imagePart.sy, Tile.width, Tile.width,
-          x * Tile.width, y * Tile.height
-        );
-      }
-    }
-
-    canvas.ctx.globalCompositeOperation = 'destination-in';
-    canvas.ctx.drawImage(this.alphaMap.image.resource, 0, 0);
-    canvas.ctx.globalCompositeOperation = 'source-over';
-    canvas.ctx.drawImage(this.overLayer.image.resource, 0, 0);
-
-    autoTile = AutoTile.fromTemplate(tile, new ImagePart(canvas.toImageResource(), 0, 0));
-    this.buildTileCache.set(tile, autoTile);
-    return autoTile;
-  }
-
-}
-
-
-/**
- * AutoBlock
- *  - top: AutoTile
- *  - content: AutoBorderTile
- */
-
-export class Block {
-  constructor(
-    public topLayers: (AutoTile|Tile)[],
-    public frontLayers?: (AutoTile|Tile)[]
-  ) {
-
-  }
-}
 
 window.addEventListener('load', () => {
   const renderer = new Renderer();
@@ -531,20 +581,50 @@ window.addEventListener('load', () => {
     return map;
   };
 
-  let drawMap = (map: AutoTile[][]) => {
+  let randomBlockMapBuilder = (autoBlock: AutoBlock[], width: number = 10, height: number = 10): AutoBlock[][] => {
+    let map: AutoBlock[][] = [];
+    for(let y = 0; y < height; y++) {
+      map[y] = [];
+      for(let x = 0; x < width; x++) {
+        map[y][x] = autoBlock[Math.floor(Math.random() * autoBlock.length)];
+      }
+    }
+    return map;
+  };
+
+  let drawMap = (map: JunctionAutoTile[][]) => {
     // console.log(map);
 
     let canvas = new Canvas((map[0].length - 1) * Tile.width, (map.length - 1) * Tile.height);
 
-    let xMap: AutoTile[];
+    let xMap: JunctionAutoTile[];
     for(let y = 0; y < map.length - 1; y++) {
       xMap = map[y];
       for(let x = 0; x < xMap.length - 1; x++) {
         // setTimeout(() => {
           canvas.putImageResource(AutoTileHelper.buildTile([
-            map[y + 0][x + 0], map[y + 0][x + 1],
-            map[y + 1][x + 0], map[y + 1][x + 1]
+            map[y    ][x], map[y    ][x + 1],
+            map[y + 1][x], map[y + 1][x + 1]
           ]), 0, 0, Tile.width, Tile.width, x * Tile.width, y * Tile.height);
+        // }, Math.floor(Math.random() * map.length * xMap.length));
+      }
+    }
+
+    return canvas;
+  };
+
+  let drawBlockMap = (map: AutoBlock[][]) => {
+    let canvas = new Canvas((map[0].length - 1) * Tile.width, (map.length - 1) * Tile.height);
+
+    let xMap: AutoBlock[];
+    for(let y = 0; y < map.length - 1; y++) {
+      xMap = map[y];
+      for(let x = 0; x < xMap.length - 1; x++) {
+        // setTimeout(() => {
+        canvas.putImageResource(AutoTileHelper.buildBlock([
+          map[y    ][x], map[y    ][x + 1],
+          map[y + 1][x], map[y + 1][x + 1]
+        ]), 0, 0, Tile.width, Tile.width, x * Tile.width, y * Tile.height);
         // }, Math.floor(Math.random() * map.length * xMap.length));
       }
     }
@@ -748,102 +828,107 @@ window.addEventListener('load', () => {
     };
 
     let overLayers: { [key:string]: ImagePart } = {
-      mountain_top: new ImagePart(<ImageResource>resources[12], 0, 0),
+      mountain_01_top: new ImagePart(<ImageResource>resources[12], 0, 0),
+      mountain_01_bot: new ImagePart(<ImageResource>resources[12], 0, 64),
     };
-
 
 
     /** GET AUTO TILES TEMPLATES **/
     let autoTileTemplates: { [key:string]: AutoTileTemplate } = {
       grass: new AutoTileTemplate(alphaMaps['grass'], underLayers['grass']),
-      sand: new AutoTileTemplate(alphaMaps['sand'], underLayers['sand'])
+      sand: new AutoTileTemplate(alphaMaps['sand'], underLayers['sand']),
+      mountain_01_top: new AutoTileTemplate(alphaMaps['mountain_01'], null, overLayers['mountain_01_top']),
+      mountain_02_top: new AutoTileTemplate(alphaMaps['mountain_01'], null, overLayers['mountain_01_top']),
     };
 
 
-    /** GET AUTO TILES **/
-    let autoTiles: { [key:string]: JunctionAutoTile } = {
-      sand_0: autoTileTemplates['sand'].toAutoTile(tiles['sand_0']),
-      sand_1: autoTileTemplates['sand'].toAutoTile(tiles['sand_1']),
-      grass_0: autoTileTemplates['grass'].toAutoTile(tiles['grass_0']),
-      rock_0: autoTileTemplates['grass'].toAutoTile(tiles['rock_0']),
-      earth_0: autoTileTemplates['grass'].toAutoTile(tiles['earth_0'])
+    /** GET JUNCTION AUTO TILES **/
+    let junctionAutoTiles: { [key:string]: JunctionAutoTile } = {
+      sand_0: autoTileTemplates['sand'].toJunctionAutoTile(tiles['sand_0']),
+      sand_1: autoTileTemplates['sand'].toJunctionAutoTile(tiles['sand_1']),
+      grass_0: autoTileTemplates['grass'].toJunctionAutoTile(tiles['grass_0']),
+      rock_0: autoTileTemplates['grass'].toJunctionAutoTile(tiles['rock_0']),
+      earth_0: autoTileTemplates['grass'].toJunctionAutoTile(tiles['earth_0'])
+    };
+
+    [junctionAutoTiles['rock_0'], junctionAutoTiles['earth_0'], junctionAutoTiles['sand_0'], junctionAutoTiles['sand_1'], junctionAutoTiles['grass_0']]
+      .forEach((autoTile: JunctionAutoTile, index: number) => { autoTile.zIndex = index; });
+
+
+    // Canvas.fromImageResource(junctionAutoTiles['grass_0'].preview(true)).append();
+
+    let borderAutoTileTemplates: { [key:string]: BorderAutoTileTemplate } = {
+      mountain_01: new BorderAutoTileTemplate(autoTileTemplates['mountain_01_top']),
+      mountain_02: new BorderAutoTileTemplate(autoTileTemplates['mountain_02_top'])
+    };
+
+    let autoBlocks: { [key:string]: AutoBlock } = {
+      sand_01: new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
+      grass_01: new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
     };
 
 
-    Canvas.fromImageResource(autoTiles['grass_0'].preview(true)).append();
+    // Canvas.fromImageResource(borderAutoTileTemplates['mountain_01'].buildTop(tiles['grass_0']).preview(false)).append();
 
+    // let map = randomBlockMapBuilder([autoBlocks['sand_01'], autoBlocks['grass_01'], null], 10, 10);
+    // console.log(map);
 
+    // let map = [
+    //   [
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
+    //   ],
+    //   [
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
+    //   ],
+    //   [
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
+    //   ]
+    // ];
+
+    let map = [
+      [
+        null, null, null
+      ],
+      [
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_02']),
+        new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
+        null
+      ],
+      [
+        null, null, null
+      ]
+    ];
+
+    let t1 = performance.now();
+    let rendered = drawBlockMap(map);
+    let t2 = performance.now();
+    console.log(t2 - t1);
+    rendered.append(document.body);
 
     return;
 
 
-    // let borderAutoTile = new BorderAutoTile(alphaMaps['mountain_01'], mountainOverLayerJunction);
-    //
-    // let borderTopAutoTile = borderAutoTile.buildTop(tiles['grass_0']);
-    // Canvas.fromImageResource(borderTopAutoTile.toTemplate()).append();
-    // Canvas.fromImageResource(borderTopAutoTile.toTemplate(true)).append();
-
-
-    let junctions: { [key:string]: JunctionAutoTileTemplate } = {
-      sand: new JunctionAutoTileTemplate(alphaMaps['sand'], sandUnderLayerJunction),
-      grass: new JunctionAutoTileTemplate(alphaMaps['grass'], grassUnderLayerJunction),
-    };
-
-    let autoTiles: { [key:string]: JunctionAutoTile } = {
-      sand_0: junctions['sand'].build(tiles['sand_0']),
-      sand_1: junctions['sand'].build(tiles['sand_1']),
-      grass_0: junctions['grass'].build(tiles['grass_0']),
-      rock_0: junctions['grass'].build(tiles['rock_0']),
-      earth_0: junctions['grass'].build(tiles['earth_0'])
-    };
-
-    return;
-
-    [autoTiles['rock_0'], autoTiles['earth_0'], autoTiles['sand_0'], autoTiles['sand_1'], autoTiles['grass_0']]
-      .forEach((autoTile: AutoTile, index: number) => { autoTile.zIndex = index; });
-
-    // let autoTile: AutoTile = autoTiles.sand_1;
-    // Canvas.fromImageResource(autoTile.image).append(document.body);
-    // Canvas.fromImageResource(autoTile.toTemplate()).append(document.body);
-    // Canvas.fromImageResource(autoTile.toTemplate(true)).append(document.body);
-
+    /** GENERATE MAP **/
     let map = randomMapBuilder(
-      [autoTiles['rock_0'], autoTiles['sand_0'], autoTiles['sand_1'], autoTiles['grass_0'], autoTiles['earth_0']],
-      10, 10
-      // Math.floor(window.innerWidth / Tile.width) + 1,
-      // Math.floor(window.innerHeight / Tile.height) + 1
+      [junctionAutoTiles['rock_0'], junctionAutoTiles['sand_0'], junctionAutoTiles['sand_1'], junctionAutoTiles['grass_0'], junctionAutoTiles['earth_0']],
+      100, 100
     );
+
+
     let t1 = performance.now();
     let rendered = drawMap(map);
     let t2 = performance.now();
     console.log(t2 - t1);
     rendered.append(document.body);
-    AutoTileHelper.buildTileCache.clear();
-
-    // let tileImageResource: ImageResource = AutoTileHelper.buildTile([
-    //   autoTiles['rock_0'], autoTiles['rock_0'],
-    //   autoTiles['sand_0'], autoTiles['rock_0']
-    // ]);
-
-    // Canvas.fromImageResource(
-    //   ImageResource.fromImageData(
-    //     Compositing.apply(
-    //       Compositing.sourceOver, mountainOverLayerJunction.image.imageData,
-    //       Compositing.apply(Compositing.destinationIn, alphaMaps.mountain.image.imageData, tileImageResource.imageData)
-    //     )
-    //   )
-    // )
-    // // .resize(256, 256, 'pixelated')
-    // .append(document.body);
 
 
-    // Canvas.fromImageData(Canvas.filter(
-    //   Canvas.fromImageResource(<ImageResource>resources[0]).getImageData(32 * 8, 0, 64, 64),
-    //   Canvas.fromImageResource(<ImageResource>resources[0]).getImageData(32 * 10, 0, 32, 32),
-    //   0, 0, 64, 64, 16, 0
-    // )).append(document.body);
 
-    // audioTest(<AudioResource>resources[7]);
 
 
   });
