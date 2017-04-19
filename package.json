@@ -5,22 +5,22 @@
   "main": "dist/paint.js",
   "scripts": {
     "start": "gulp watch",
-    "browserify": "browserify dist/movement.js -o dist/browser.bundled.js",
-    "browserify-no-process": "browserify dist/movement.js --insert-global-vars __filename,__dirname,Buffer,global -o dist/browser.bundled.js"
+    "serve": "http-server ./dist"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/core-js": "^0.9.35",
-    "@types/node": "^7.0.2",
-    "browserify": "^13.3.0",
-    "gulp": "^3.9.1",
-    "gulp-typescript": "^3.1.4",
-    "gulp-util": "^3.0.8",
-    "typescript": "^2.1.5",
-    "vinyl-source-stream": "^1.1.0"
+    "@types/core-js": "latest",
+    "@types/node": "latest",
+    "browserify": "latest",
+    "gulp": "latest",
+    "gulp-typescript": "latest",
+    "gulp-util": "latest",
+    "http-server": "latest",
+    "typescript": "latest",
+    "vinyl-source-stream": "latest"
   },
   "dependencies": {
-    "events-polyfill": "^1.1.0"
+    "events-polyfill": "latest"
   }
 }

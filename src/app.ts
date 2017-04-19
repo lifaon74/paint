@@ -868,42 +868,42 @@ window.addEventListener('load', () => {
     };
 
 
-    // Canvas.fromImageResource(borderAutoTileTemplates['mountain_01'].buildTop(tiles['grass_0']).preview(false)).append();
+    Canvas.fromImageResource(borderAutoTileTemplates['mountain_01'].buildTop(tiles['grass_0']).preview(false)).append();
 
     // let map = randomBlockMapBuilder([autoBlocks['sand_01'], autoBlocks['grass_01'], null], 10, 10);
     // console.log(map);
 
-    // let map = [
-    //   [
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
-    //   ],
-    //   [
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
-    //   ],
-    //   [
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
-    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
-    //   ]
-    // ];
-
     let map = [
       [
-        null, null, null
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
       ],
       [
-        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_02']),
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
         new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
-        null
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
       ],
       [
-        null, null, null
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01']),
+        new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_01'])
       ]
     ];
+
+    // let map = [
+    //   [
+    //     null, null, null
+    //   ],
+    //   [
+    //     new AutoBlock(junctionAutoTiles['grass_0'], borderAutoTileTemplates['mountain_02']),
+    //     new AutoBlock(junctionAutoTiles['sand_0'], borderAutoTileTemplates['mountain_01']),
+    //     null
+    //   ],
+    //   [
+    //     null, null, null
+    //   ]
+    // ];
 
     let t1 = performance.now();
     let rendered = drawBlockMap(map);
