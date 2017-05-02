@@ -20,13 +20,13 @@ export class SortedArray<T> {
   }
 
   insert(value: T): number {
-    let insertIndex: number = this.getInsertIndex(value);
+    const insertIndex: number = this.getInsertIndex(value);
     this.array.splice(insertIndex, 0, value);
     return insertIndex;
   }
 
   insertUnique(value: T): number {
-    let insertIndex: number = this.getInsertIndex(value);
+    const insertIndex: number = this.getInsertIndex(value);
     if(!this.match(insertIndex, value)) {
       this.array.splice(insertIndex, 0, value);
     }
@@ -38,7 +38,7 @@ export class SortedArray<T> {
   }
 
   indexOf(value: T): number {
-    let insertIndex: number = this.getInsertIndex(value);
+    const insertIndex: number = this.getInsertIndex(value);
     return this.match(insertIndex, value) ? insertIndex : -1;
   }
 
@@ -64,7 +64,7 @@ export class SortedArray<T> {
 
 
   /**
-   * Get index at with value must be inserted keeping order
+   * Get index where value must be inserted keeping order
    * @param value
    * @returns {number}
    */

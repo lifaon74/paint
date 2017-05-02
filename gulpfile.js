@@ -28,7 +28,7 @@ gulp.task('browserify', ['build.js'], function() {
   return browserify('dist/app.js')
     .bundle()
     .on('error', gutil.log)
-    .pipe(source('app.js'))
+    .pipe(source('app.bundled.js'))
     .pipe(gulp.dest('dist'));
 });
 
@@ -46,7 +46,13 @@ gulp.task('build.html', () => {
 });
 
 
-gulp.task('watch', ['build.js', 'build.html', 'browserify', 'browserify-worker'], () => {
-  gulp.watch(path.join(SRC_DIR, '**'), ['build.js', 'build.html', 'browserify', 'browserify-worker']);
+gulp.task('watch', [
+  'build.js', 'build.html',
+  'browserify', 'browserify-worker'
+], () => {
+  gulp.watch(path.join(SRC_DIR, '**'), [
+    'build.js', 'build.html',
+    'browserify', 'browserify-worker'
+  ]);
 });
 

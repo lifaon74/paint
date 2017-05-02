@@ -21,33 +21,77 @@ export class AudioResource extends AsyncResource {
     return AudioResource.canPlayType(ResourceHelper.extensionToMimeType(ResourceHelper.pathToExtension(source)));
   }
 
-  resource: HTMLAudioElement;
+  static async awaitLoaded(audio: HTMLAudioElement): Promise<HTMLAudioElement> {
+    return new Promise<HTMLAudioElement>((resolve: any, reject: any) => {
+      if(audio.readyState === (<any>HTMLAudioElement).HAVE_ENOUGH_DATA) {
+        resolve(audio);
+      } else {
+        let load: any, error: any, clear: any;
+
+        load = () => {
+          clear();
+          resolve(audio);
+        };
+
+        error = () => {
+          clear();
+          reject(new Error('Invalid resource path ' + audio.src));
+        };
+
+        clear = () => {
+          audio.removeEventListener('loadeddata', load, false);
+          audio.removeEventListener('error', error, false);
+        };
+
+        audio.addEventListener('loadeddata', load, false);
+        audio.addEventListener('error', error, false);
+      }
+    });
+  }
+
+  public resource: HTMLAudioElement;
 
   constructor() {
     super();
     this.resource = new Audio();
   }
 
-  load(source: string): Promise<AsyncResource> {
-    switch(AudioResource.canPlaySource(source)) {
-      case 'probably':
-      case 'maybe':
-        return super.load(source, 'loadeddata');
-      case '':
-      default:
-        return Promise.reject(new Error('Can\'t load this extension'));
+  async load(sources: string | ArrayLike<string>): Promise<this> {
+    if(!(sources instanceof Array)) {
+      sources = [sources] as Array<string>;
     }
+
+    let i = 0, loaded: boolean = false;
+    while((i < sources.length) && !loaded) {
+      try {
+        switch(AudioResource.canPlaySource(sources[i])) {
+          case 'probably':
+          case 'maybe':
+            this.src = sources[i];
+            await AudioResource.awaitLoaded(this.resource);
+            loaded = true;
+            break;
+          case '':
+          default:
+            throw new Error('Can\'t load this extension');
+        }
+      } catch(error) {
+        i++;
+      }
+    }
+    if(!loaded) throw new Error('Invalid resource path ' + JSON.stringify(sources));
+    return this;
   }
 
-  loadData(source: string): any {
-    return new Promise((resolve:any, reject:any) => {
-      let request = new XMLHttpRequest();
+  async loadData(source: string): Promise<this> {
+    return new Promise<this>((resolve: any, reject: any) => {
+      const request = new XMLHttpRequest();
       request.open('GET', source, true);
       request.responseType = 'arraybuffer';
 
-      let context = new AudioContext();
+      const context = new AudioContext();
 
-      let onLoad = () => {
+      const onLoad = () => {
         request.removeEventListener('load', onLoad, false);
 
         context.decodeAudioData(request.response).then((buffer: AudioBuffer) => {

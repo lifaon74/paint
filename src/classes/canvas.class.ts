@@ -11,7 +11,7 @@ export class ImageRendering {
 
 
 export class Canvas {
-  static fromImageResource(image: ImageResource): Canvas {
+  static async  fromImageResource(image: ImageResource): Promise<Canvas> {
     return new Canvas(image.width, image.height).putImageResource(image);
   }
 
@@ -40,17 +40,39 @@ export class Canvas {
     return ImageResource.fromImageData(this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height));
   }
 
-  putImageResource(imageResource: ImageResource, sx: number = 0, sy: number = 0, sw: number = imageResource.width, sh: number = imageResource.height, dx: number = 0, dy: number = 0): this {
+  async putImageResource(imageResource: ImageResource, sx: number = 0, sy: number = 0, sw: number = imageResource.width, sh: number = imageResource.height, dx: number = 0, dy: number = 0): Promise<this> {
     sx = Math.max(0, Math.min(imageResource.width, sx));
     sw = Math.max(0, Math.min(imageResource.width - sx, sw));
     sy = Math.max(0, Math.min(imageResource.height, sy));
     sh = Math.max(0, Math.min(imageResource.height - sy, sh));
 
     if(imageResource._resource) {
+      await ImageResource.awaitLoaded(imageResource._resource);
       this.ctx.drawImage(imageResource._resource, sx, sy, sw, sh, dx, dy, sw, sh);
     } else if(imageResource._imageData) {
       this.ctx.putImageData(imageResource._imageData, dx - sx, dy - sy, sx, sy, sw, sh);
     }
+    return this;
+  }
+
+  async drawImage(
+    image: HTMLImageElement,
+    sx?: number, sy?: number, sw?: number, sh?: number,
+    dx?: number, dy?: number, dw?: number, dh?: number
+  ): Promise<this> {
+    await ImageResource.awaitLoaded(image);
+
+    if(sx === void 0) sx = 0;
+    if(sy === void 0) sx = 0;
+    if(sw === void 0) sw = image.width;
+    if(sh === void 0) sh = image.height;
+
+    if(dx === void 0) dx = 0;
+    if(dy === void 0) dy = 0;
+    if(dw === void 0) dw = image.width;
+    if(dh === void 0) dh = image.height;
+
+    this.ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
     return this;
   }
 
@@ -115,6 +137,7 @@ export class Canvas {
     return this;
   }
 
+
   get width(): number {
     return this.canvas.width;
   }
@@ -138,8 +161,8 @@ export class Canvas {
       this.ctx.mozImageSmoothingEnabled = enable;
     } else if(typeof this.ctx.webkitImageSmoothingEnabled !== 'undefined') {
       this.ctx.webkitImageSmoothingEnabled = enable;
-    } else if(typeof this.ctx.msImageSmoothingEnabled !== 'undefined') {
-      this.ctx.msImageSmoothingEnabled = enable;
+    } else if(typeof (<any>this.ctx).msImageSmoothingEnabled !== 'undefined') {
+      (<any>this.ctx).msImageSmoothingEnabled = enable;
     }
   }
 
@@ -150,10 +173,11 @@ export class Canvas {
       return this.ctx.mozImageSmoothingEnabled;
     } else if(typeof this.ctx.webkitImageSmoothingEnabled !== 'undefined') {
       return this.ctx.webkitImageSmoothingEnabled;
-    } else if(typeof this.ctx.msImageSmoothingEnabled !== 'undefined') {
-      return this.ctx.msImageSmoothingEnabled;
+    } else if(typeof (<any>this.ctx).msImageSmoothingEnabled !== 'undefined') {
+      return (<any>this.ctx).msImageSmoothingEnabled;
     } else {
       return true;
     }
   }
+
 }

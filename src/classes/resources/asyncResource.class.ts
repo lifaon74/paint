@@ -3,18 +3,7 @@ import { EventObject } from '../events.class';
 export abstract class AsyncResource extends EventObject {
 
   abstract resource: (HTMLImageElement | HTMLAudioElement);
-
-  load(source: string, onLoadEventName: string = 'load'): Promise<AsyncResource> {
-    return new Promise<AsyncResource>((resolve: any, reject: any) => {
-      this.addEventListener(onLoadEventName, () => {
-        resolve(this);
-      }, { once: true });
-      this.addEventListener('error', () => {
-        reject(new Error('Invalid resource path ' + source));
-      }, { once: true });
-      this.src = source;
-    });
-  }
+  abstract async load(sources: string | ArrayLike<string>): Promise<this>;
 
   get _eventTarget(): Element {
     return this.resource;

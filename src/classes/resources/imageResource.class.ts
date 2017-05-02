@@ -1,6 +1,7 @@
 import { AsyncResource } from './asyncResource.class';
 
 export class ImageResource extends AsyncResource {
+
   static load(source: string): Promise<ImageResource> {
     return new ImageResource().load(source);
   }
@@ -14,6 +15,35 @@ export class ImageResource extends AsyncResource {
     imageResource.imageData = imageData;
     return imageResource;
   }
+
+  static async awaitLoaded(image: HTMLImageElement): Promise<HTMLImageElement> {
+    return new Promise<HTMLImageElement>((resolve: any, reject: any) => {
+      if(image.complete) {
+        resolve(image);
+      } else {
+        let load: any, error: any, clear: any;
+
+        load = () => {
+          clear();
+          resolve(image);
+        };
+
+        error = () => {
+          clear();
+          reject(new Error('Invalid resource path ' + image.src));
+        };
+
+        clear = () => {
+          image.removeEventListener('load', load, false);
+          image.removeEventListener('error', error, false);
+        };
+
+        image.addEventListener('load', load, false);
+        image.addEventListener('error', error, false);
+      }
+    });
+  }
+
 
   public _width: number;
   public _height: number;
@@ -32,6 +62,26 @@ export class ImageResource extends AsyncResource {
     this._resource        = null;
     this._hasTransparency = null;
   }
+
+  async load(sources: string | ArrayLike<string>): Promise<this> {
+    if(!(sources instanceof Array)) {
+      sources = [sources] as Array<string>;
+    }
+
+    let i = 0, loaded: boolean = false;
+    while((i < sources.length) && !loaded) {
+      try {
+        this.src = sources[i];
+        await ImageResource.awaitLoaded(this.resource);
+        loaded = true;
+      } catch(error) {
+        i++;
+      }
+    }
+    if(!loaded) throw new Error('Invalid resource path ' + JSON.stringify(sources));
+    return this;
+  }
+
 
   get width(): number {
     if(!this._width) {

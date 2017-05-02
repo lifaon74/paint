@@ -81,7 +81,7 @@ export class EventObject {
     this._eventTarget = target || document.createDocumentFragment();
   }
 
-  addEventListener(type: string, callback: EventListenerCallback, options: EventListenerOptions): void {
+  addEventListener(type: string, callback: EventListenerCallback, options?: EventListenerOptions): void {
     this._eventTarget.addEventListener(type, callback, <any>options);
   }
 
@@ -89,7 +89,7 @@ export class EventObject {
     return this._eventTarget.dispatchEvent(event);
   };
 
-  removeEventListener(type: string, callback: EventListenerCallback, options: EventListenerOptions): void {
+  removeEventListener(type: string, callback: EventListenerCallback, options?: EventListenerOptions): void {
     this._eventTarget.removeEventListener(type, callback, <any>options);
   }
 
