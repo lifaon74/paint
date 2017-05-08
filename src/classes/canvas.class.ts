@@ -41,15 +41,18 @@ export class Canvas {
   }
 
   async putImageResource(imageResource: ImageResource, sx: number = 0, sy: number = 0, sw: number = imageResource.width, sh: number = imageResource.height, dx: number = 0, dy: number = 0): Promise<this> {
+    if(!imageResource._imageData) {
+      await ImageResource.awaitLoaded(imageResource.resource);
+    }
+
     sx = Math.max(0, Math.min(imageResource.width, sx));
     sw = Math.max(0, Math.min(imageResource.width - sx, sw));
     sy = Math.max(0, Math.min(imageResource.height, sy));
     sh = Math.max(0, Math.min(imageResource.height - sy, sh));
 
     if(imageResource._resource) {
-      await ImageResource.awaitLoaded(imageResource._resource);
-      this.ctx.drawImage(imageResource._resource, sx, sy, sw, sh, dx, dy, sw, sh);
-    } else if(imageResource._imageData) {
+      this.ctx.drawImage(imageResource.resource, sx, sy, sw, sh, dx, dy, sw, sh);
+    } else {
       this.ctx.putImageData(imageResource._imageData, dx - sx, dy - sy, sx, sy, sw, sh);
     }
     return this;

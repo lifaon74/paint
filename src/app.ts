@@ -418,7 +418,7 @@ export class AutoTile  {
       );
     }
     await Promise.all(promises);
-    canvas.append();
+    // canvas.append();
     return canvas.toImageResource();
   }
 
@@ -1093,7 +1093,7 @@ window.addEventListener('load', () => {
     let tiles: { [key:string]: Tile } = {
       grass_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 6, 32 * 2).verifyTransparency()),
       rock_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 5, 32 * 2).verifyTransparency()),
-      sand_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 9, 32 * 2).verifyTransparency()),
+      sand_0: new Tile(new ImagePart(new ImageResource('./assets/images/templates/floors/sand_01.png'), 0, 0).verifyTransparency()),
       sand_1: new Tile(new ImagePart(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency()),
       earth_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency()),
       mountain_01: new Tile(new ImagePart(<ImageResource>resources[7], 0, 0).verifyTransparency()),
@@ -1127,6 +1127,8 @@ window.addEventListener('load', () => {
     };
 
 
+    // return (await Canvas.fromImageResource(await (await autoTileTemplates['sand'].toJunctionAutoTile(tiles['sand_0'])).preview(true))).append();
+
     /** GET JUNCTION AUTO TILES **/
     let junctionAutoTiles: { [key:string]: JunctionAutoTile } = {
       sand_0: await autoTileTemplates['sand'].toJunctionAutoTile(tiles['sand_0']),
@@ -1142,7 +1144,7 @@ window.addEventListener('load', () => {
 
     // return await autoTileBuildIndexesTest(junctionAutoTiles['grass_0']);
 
-    // (await Canvas.fromImageResource(await junctionAutoTiles['grass_0'].preview(true))).append();
+    // (await Canvas.fromImageResource(await junctionAutoTiles['sand_0'].preview(true))).append();
     // (await Canvas.fromImageResource(junctionAutoTiles['grass_0'].imagePart.image)).append();
 
     /** GET BORDER AUTO TILES TEMPLATES **/
@@ -1174,7 +1176,7 @@ window.addEventListener('load', () => {
       autoBlocks['grass_01'],
       autoBlocks['rock_01'],
       null
-    ], 10, 10);
+    ], 100, 100);
 
     // let map = [
     //   [
