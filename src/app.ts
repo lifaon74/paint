@@ -1,4 +1,4 @@
-import { Canvas } from './classes/canvas.class';
+import { Canvas, ImageRendering } from './classes/canvas.class';
 import { SortedArray } from './classes/sortedArray.class';
 import { ImageResource } from './classes/resources/imageResource.class';
 import { ResourceLoader, ResourceDescriptor } from './classes/resources/resourceLoader.class';
@@ -1066,6 +1066,14 @@ window.addEventListener('load', () => {
     let global: any = {};
     (<any>window).glob = global;
 
+    // (await Canvas.fromImageResource(<ImageResource>resources[1])).cut(32*5, 64, 32, 32).append();
+    // (await Canvas.fromImageResource(<ImageResource>resources[1])).cut(32*6, 64, 32, 32).append();
+    // (await Canvas.fromImageResource(<ImageResource>resources[1])).cut(32*8, 64, 32, 32).append();
+    // (await Canvas.fromImageResource(<ImageResource>resources[1])).cut(32*9, 64, 32, 32).append();
+    // (await Canvas.fromImageResource(<ImageResource>resources[1])).cut(32*10, 64, 32, 32).append();
+    //
+    // return;
+
     // let audio = new AudioResource();
     // audio.loadData('./assets/sounds/field_01.mp3');
     // return;
@@ -1089,6 +1097,7 @@ window.addEventListener('load', () => {
       sand_1: new Tile(new ImagePart(<ImageResource>resources[0], 0, 96 * 2).verifyTransparency()),
       earth_0: new Tile(new ImagePart(<ImageResource>resources[1], 32 * 10, 32 * 2).verifyTransparency()),
       mountain_01: new Tile(new ImagePart(<ImageResource>resources[7], 0, 0).verifyTransparency()),
+      dirt_01: new Tile(new ImagePart(new ImageResource('./assets/images/templates/floors/dirt_01.png'), 0, 0).verifyTransparency()),
     };
 
     let alphaMaps: { [key:string]: ImagePart } = {
@@ -1204,6 +1213,8 @@ window.addEventListener('load', () => {
     let rendered = await drawBlockMap(map);
     let t2 = performance.now();
     console.log(t2 - t1);
+
+    rendered = rendered.resize(rendered.width * 2, rendered.height * 2, ImageRendering.PIXELATED);
     rendered.append(document.body);
 
     /** GENERATE MAP **/

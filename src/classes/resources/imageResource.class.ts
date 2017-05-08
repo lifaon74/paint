@@ -54,13 +54,15 @@ export class ImageResource extends AsyncResource {
   public _hasTransparency: boolean;
 
 
-  constructor() {
+  constructor(sources?: string | ArrayLike<string>) {
     super();
     this._width  = 0;
     this._height = 0;
     this._imageData       = null;
     this._resource        = null;
     this._hasTransparency = null;
+
+    if(sources) this.load(sources);
   }
 
   async load(sources: string | ArrayLike<string>): Promise<this> {
