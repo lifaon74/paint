@@ -11,7 +11,7 @@ export class ImageResource extends AsyncResource {
   }
 
   static fromImageData(imageData: ImageData): ImageResource {
-    const imageResource = new ImageResource();
+    let imageResource = new ImageResource();
     imageResource.imageData = imageData;
     return imageResource;
   }
@@ -50,6 +50,7 @@ export class ImageResource extends AsyncResource {
       ;
   }
 
+
   public useProxy: boolean = true;
 
   public _width: number;
@@ -63,13 +64,12 @@ export class ImageResource extends AsyncResource {
   public _hasTransparency: boolean;
 
 
-  constructor(sources?: string | ArrayLike<string>) {
+  constructor() {
     super();
     this.reset();
-    if(sources) this.load(sources);
   }
 
-  async load(sources: (string | ArrayLike<string>)): Promise<this> {
+  async load(sources: (string | ArrayLike<string>) = this.src): Promise<this> {
     if(!(sources instanceof Array)) {
       sources = [sources] as Array<string>;
     }
@@ -89,7 +89,7 @@ export class ImageResource extends AsyncResource {
   }
 
   get width(): number {
-    if(this._width === null) {
+    if(!this._width) {
       if(this._resource) {
         if(this._resource.naturalWidth) {
           this._width = this._resource.naturalWidth;
@@ -100,25 +100,22 @@ export class ImageResource extends AsyncResource {
         }
       } else if(this._imageData) {
         this._width = this._imageData.width;
-      } else {
-        this._width = 0;
       }
     }
     return this._width;
   }
 
   set width(width: number) {
-    if(width !== this._width) {
-      this._width           = width;
-      this._src             = null;
-      this._resource        = null;
-      this._imageData       = null;
-      this._hasTransparency = null;
-    }
+    this._width           = width;
+    this._src             = null;
+    this._resource        = null;
+    this._imageData       = null;
+    this._hasTransparency = null;
   }
 
+
   get height(): number {
-    if(this._height === null) {
+    if(!this._height) {
       if(this._resource) {
         if(this._resource.naturalHeight) {
           this._height = this._resource.naturalHeight;
@@ -129,27 +126,24 @@ export class ImageResource extends AsyncResource {
         }
       } else if(this._imageData) {
         this._height = this._imageData.height;
-      } else {
-        this._height = 0;
       }
     }
     return this._height;
   }
 
   set height(height: number) {
-    if(height !== this._height) {
-      this._height          = height;
-      this._src             = null;
-      this._resource        = null;
-      this._imageData       = null;
-      this._hasTransparency = null;
-    }
+    this._height          = height;
+    this._src             = null;
+    this._resource        = null;
+    this._imageData       = null;
+    this._hasTransparency = null;
   }
 
 
   get src(): string {
-    if(this._src === null) {
-      if(this._resource && this._resource.src) {
+    if(!this._src) {
+      this._src = '';
+      if(this._resource) {
         this._src = this._resource.src;
       } else if(this._imageData) {
         const canvas: HTMLCanvasElement = document.createElement('canvas');
@@ -158,8 +152,6 @@ export class ImageResource extends AsyncResource {
         const ctx: CanvasRenderingContext2D = canvas.getContext('2d');
         ctx.putImageData(this._imageData, 0, 0);
         this._src = canvas.toDataURL();
-      } else {
-        this._src = '';
       }
     }
     return this._src;
@@ -174,7 +166,7 @@ export class ImageResource extends AsyncResource {
 
 
   get resource(): HTMLImageElement {
-    if(this._resource === null) {
+    if(!this._resource) {
       this._resource = new Image();
       this._resource.src = this.src;
       this.proxyResource(this._resource);
@@ -192,7 +184,7 @@ export class ImageResource extends AsyncResource {
 
 
   get imageData(): ImageData {
-    if(this._imageData === null) {
+    if(!this._imageData) {
       if(this._resource) {
         let canvas: HTMLCanvasElement = document.createElement('canvas');
         canvas.width  = this.width;
@@ -202,26 +194,23 @@ export class ImageResource extends AsyncResource {
         this._imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       } else {
         this._imageData = new ImageData(this.width, this.height);
+        // throw new Error('Cannot get ImageData if ImageResource is not loaded');
       }
     }
     return this._imageData;
   }
 
   set imageData(imageData: ImageData) {
-    if(imageData !== this._imageData) {
-      this._width           = imageData.width;
-      this._height          = imageData.height;
-      this._src             = null;
-      this._resource        = null;
-      this._imageData       = imageData;
-      this._hasTransparency = null;
-    }
+    this.reset();
+    this._width     = imageData.width;
+    this._height    = imageData.height;
+    this._imageData = imageData;
   }
 
 
   reset() {
-    this._width           = null;
-    this._height          = null;
+    this._width  = 0;
+    this._height = 0;
     this._src             = null;
     this._resource        = null;
     this._imageData       = null;
@@ -269,6 +258,7 @@ export class ImageResource extends AsyncResource {
         set: (source: string) => {
           if(resource === this._resource) {
             this.reset();
+            this._src = source;
             this._resource = resource;
           } else {
             // console.log('unlink');

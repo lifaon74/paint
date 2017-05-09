@@ -543,56 +543,65 @@ export class AutoTileHelper {
   }
 
 
+
   // topLeftAutoTile: AutoTile, topRightAutoTile: AutoTile, bottomLeftAutoTile: AutoTile, bottomRightAutoTile: AutoTile
   @Memoize({ destructure: true })
   static async buildJunctionTile(autoTiles: [JunctionAutoTile, JunctionAutoTile, JunctionAutoTile, JunctionAutoTile]): Promise<ImageResource> {
     const canvas = new Canvas(Tile.width, Tile.height);
 
-    const ordered: SortedArray<AutoTile> = new SortedArray<AutoTile>(JunctionAutoTile.compare);
+    const orderedAutoTiles: SortedArray<AutoTile> = new SortedArray<AutoTile>(JunctionAutoTile.compare);
     let autoTile: AutoTile;
 
     for(let i = 0; i < autoTiles.length; i++) {
       autoTile = autoTiles[i];
       if(autoTile !== null) {
-        ordered.insertUnique(autoTile);
+        orderedAutoTiles.insertUnique(autoTile);
       }
     }
 
-    let i: number, index: number;
-    let orderedAutoTile: AutoTile;
-
+    const promises: Promise<void>[] = [];
     for(let y = 0; y < 2; y++) {
       for(let x = 0; x < 2; x++) {
-        i = x + y * 2; // index of the current half Tile (ltr)
-        autoTile = autoTiles[i];
-        if(autoTile !== null) {
-          let j = autoTile.imagePart.hasTransparencyCached ? 0 : ordered.indexOf(autoTile);
-          let k = (i << 4);
-          for(let length = ordered.array.length; j < length; j++) {
-            orderedAutoTile = ordered.array[j];
+        promises.push(this._drawJunctionTile(canvas, x, y, autoTiles, orderedAutoTiles));
+      }
+    }
+    await Promise.all(promises);
 
-            index = AutoTile.autoTileBuildIndexes[
-              k |
-              ((autoTiles[0] !== orderedAutoTile) << 0) |
-              ((autoTiles[1] !== orderedAutoTile) << 1) |
-              ((autoTiles[2] !== orderedAutoTile) << 2) |
-              ((autoTiles[3] !== orderedAutoTile) << 3)
-            ];
+    return canvas.toImageResource();
+  }
 
-            // if(index === null) index = ((i ^ 0b11) * 5) + 0b100;
+    static async _drawJunctionTile(canvas: Canvas, x: number, y: number, autoTiles: AutoTile[], orderedAutoTiles: SortedArray<AutoTile>): Promise<void> {
+      let tilePosition = x + y * 2; // index of the current half Tile (ltr)
+      let autoTile = autoTiles[tilePosition];
 
-            await canvas.drawImage(
-              orderedAutoTile.imagePart.image.resource,
-              orderedAutoTile.imagePart.sx + index * Tile.halfWidth, orderedAutoTile.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
-              x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
-            );
-          }
+      let orderedAutoTile: AutoTile;
+      let index: number;
+
+      if(autoTile !== null) {
+        let j = autoTile.imagePart.hasTransparencyCached ? 0 : orderedAutoTiles.indexOf(autoTile);
+        let k = (tilePosition << 4);
+        for(let length = orderedAutoTiles.array.length; j < length; j++) {
+          orderedAutoTile = orderedAutoTiles.array[j];
+
+          index = AutoTile.autoTileBuildIndexes[
+            k |
+            ((autoTiles[0] !== orderedAutoTile) << 0) |
+            ((autoTiles[1] !== orderedAutoTile) << 1) |
+            ((autoTiles[2] !== orderedAutoTile) << 2) |
+            ((autoTiles[3] !== orderedAutoTile) << 3)
+          ];
+
+          // if(index === null) index = ((i ^ 0b11) * 5) + 0b100;
+
+          await canvas.drawImage(
+            orderedAutoTile.imagePart.image.resource,
+            orderedAutoTile.imagePart.sx + index * Tile.halfWidth, orderedAutoTile.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
+            x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
+          );
         }
       }
     }
 
-    return canvas.toImageResource();
-  }
 
   // static async buildJunctionTileOld(autoTiles: [JunctionAutoTile, JunctionAutoTile, JunctionAutoTile, JunctionAutoTile]): Promise<ImageResource> {
   //   const canvas = new Canvas(Tile.width, Tile.height);
@@ -661,55 +670,52 @@ export class AutoTileHelper {
   static async buildBorderTile(autoTiles: [AutoTile, AutoTile, AutoTile, AutoTile], merge: boolean = false): Promise<ImageResource> {
     const canvas = new Canvas(Tile.width, Tile.height);
 
-    let autoTile: AutoTile;
-    let i: number, index: number;
-
+    const promises: Promise<void>[] = [];
     for(let y = 0; y < 2; y++) {
       for(let x = 0; x < 2; x++) {
-        i = x + y * 2;
-        autoTile = autoTiles[i];
-        let k = (i << 4);
-        if(autoTile !== null) {
-          if(merge) {
-            index = AutoTile.autoTileBuildIndexes[
-              k |
-              ((autoTiles[0] !== null) << 0) |
-              ((autoTiles[1] !== null) << 1) |
-              ((autoTiles[2] !== null) << 2) |
-              ((autoTiles[3] !== null) << 3)
-            ];
-          } else {
-            index = AutoTile.autoTileBuildIndexes[
-              k |
-              ((autoTiles[0] === autoTile) << 0) |
-              ((autoTiles[1] === autoTile) << 1) |
-              ((autoTiles[2] === autoTile) << 2) |
-              ((autoTiles[3] === autoTile) << 3)
-            ];
-          }
-
-          // if(index === null) index = ((i ^ 0b11) * 5) + 0b100;
-
-          await canvas.drawImage(
-            autoTile.imagePart.image.resource,
-            autoTile.imagePart.sx + index * Tile.halfWidth, autoTile.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
-            x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
-          );
-        }
+        promises.push(this._drawBorderTile(canvas, x, y, autoTiles, merge));
       }
     }
+    await Promise.all(promises);
 
     return canvas.toImageResource();
   }
 
-  @Memoize()
-  static async invertTileImage(tileImage: ImageResource): Promise<Tile> {
-    return new Tile(new ImagePart(
-      await new Tile(
-        new ImagePart(tileImage, 0, 0)
-      ).invert()
-    , 0, 0));
-  }
+    static async _drawBorderTile(canvas: Canvas, x: number, y: number, autoTiles: AutoTile[], merge: boolean): Promise<void> {
+      let tilePosition = x + y * 2; // index of the current half Tile (ltr)
+      let autoTile = autoTiles[tilePosition];
+      let index: number;
+
+      if(autoTile !== null) {
+        let k = (tilePosition << 4);
+        if(merge) {
+          index = AutoTile.autoTileBuildIndexes[
+            k |
+            ((autoTiles[0] !== null) << 0) |
+            ((autoTiles[1] !== null) << 1) |
+            ((autoTiles[2] !== null) << 2) |
+            ((autoTiles[3] !== null) << 3)
+          ];
+        } else {
+          index = AutoTile.autoTileBuildIndexes[
+            k |
+            ((autoTiles[0] === autoTile) << 0) |
+            ((autoTiles[1] === autoTile) << 1) |
+            ((autoTiles[2] === autoTile) << 2) |
+            ((autoTiles[3] === autoTile) << 3)
+          ];
+        }
+
+        // if(index === null) index = ((i ^ 0b11) * 5) + 0b100;
+
+        await canvas.drawImage(
+          autoTile.imagePart.image.resource,
+          autoTile.imagePart.sx + index * Tile.halfWidth, autoTile.imagePart.sy, Tile.halfWidth, Tile.halfHeight,
+          x * Tile.halfWidth, y * Tile.halfHeight, Tile.halfWidth, Tile.halfHeight
+        );
+      }
+    }
+
 
   @Memoize({ destructure: true })
   static async buildBlock(autoBlocks: AutoBlock[]): Promise<ImageResource> {
@@ -720,7 +726,7 @@ export class AutoTileHelper {
 
     // (await Canvas.fromImageResource(tileImage)).append();
 
-    let tile: Tile = await this.invertTileImage(tileImage);
+    let tile: Tile = await this._invertTileImage(tileImage);
 
     // (await Canvas.fromImageResource(tile.imagePart.image)).append();
     // (await Canvas.fromImageResource(await autoBlocks[0].border.top.flatten(tile))).append();
@@ -761,6 +767,15 @@ export class AutoTileHelper {
 
     return borderedImage;
   }
+
+    @Memoize()
+    static async _invertTileImage(tileImage: ImageResource): Promise<Tile> {
+      return new Tile(new ImagePart(
+        await new Tile(
+          new ImagePart(tileImage, 0, 0)
+        ).invert()
+        , 0, 0));
+    }
 
 }
 
@@ -832,8 +847,8 @@ window.addEventListener('load', () => {
     return canvas;
   };
 
-  let drawBlockMap = async function(map: AutoBlock[][][]) {
-    let canvas = new Canvas((map[0][0].length - 1) * Tile.width, (map[0].length - 1) * Tile.height);
+  let drawBlockMapSync = async function(map: AutoBlock[][][]) {
+    const canvas = new Canvas((map[0][0].length - 1) * Tile.width, (map[0].length - 1) * Tile.height);
 
     let xMap: AutoBlock[], yMap: AutoBlock[][];
     for(let z = 0; z < map.length; z++) {
@@ -850,6 +865,39 @@ window.addEventListener('load', () => {
     }
 
     return canvas;
+  };
+
+  let drawBlockMap = async function(map: AutoBlock[][][]) {
+    return new Promise<any>((resolve: any, reject: any) => {
+      const canvas = new Canvas((map[0][0].length - 1) * Tile.width, (map[0].length - 1) * Tile.height);
+      // canvas.append();
+
+      const pool = new PromisePool(256);
+
+      let xMap: AutoBlock[], yMap: AutoBlock[][];
+      for(let z = 0; z < map.length; z++) {
+        yMap = map[z];
+        for(let y = 0; y < yMap.length - 1; y++) {
+          xMap = yMap[y];
+          for(let x = 0; x < xMap.length - 1; x++) {
+            pool.push(async function() {
+              return canvas.putImageResource(await AutoTileHelper.buildBlock([
+                map[z][y][x], map[z][y][x + 1],
+                map[z][y + 1][x], map[z][y + 1][x + 1]
+              ]), 0, 0, Tile.width, Tile.width, x * Tile.width, y * Tile.height);
+            });
+          }
+        }
+      }
+
+      if(pool.isComplete()) {
+        resolve(canvas);
+      } else {
+        pool.addEventListener('complete', () => {
+          resolve(canvas);
+        });
+      }
+    });
   };
 
   let compositionTest = async function() {
@@ -1040,8 +1088,34 @@ window.addEventListener('load', () => {
     canvas.append();
   };
 
+  let imageResourceTest = () => {
+    let a = new ImageResource();
+    a.src = './assets/images/originals/01.png';
+    let b = new ImageResource();
+    let c = new ImageResource();
+    let d = new Image();
+    d.src = './assets/images/originals/02.png';
+
+    b.resource = a.resource;
+    c.resource = a.resource;
+
+    if(a.src !== b.src) throw new Error('src differs');
+    b.src = 'void';
+    c.resource = d;
+
+    console.log(a.src);
+    // let b = a.resource;
+    // a.src = 'test';
+    window.a = a;
+    window.b = b;
+    window.c = c;
+  };
+
   // return memoryTest();
   // return compositionTest();
+  // return imageResourceTest();
+
+
 
   ResourceLoader.load([
     new ResourceDescriptor('image', ['./assets/images/originals/01.png']),
@@ -1135,7 +1209,8 @@ window.addEventListener('load', () => {
       sand_1: await autoTileTemplates['sand'].toJunctionAutoTile(tiles['sand_1']),
       grass_0: await autoTileTemplates['grass'].toJunctionAutoTile(tiles['grass_0']),
       rock_0: await autoTileTemplates['grass'].toJunctionAutoTile(tiles['rock_0']),
-      earth_0: await autoTileTemplates['grass'].toJunctionAutoTile(tiles['earth_0'])
+      earth_0: await autoTileTemplates['grass'].toJunctionAutoTile(tiles['earth_0']),
+      mountain_01_bot: await autoTileTemplates['mountain_01_bot'].toJunctionAutoTile(tiles['mountain_01'])
     };
 
     // set zIndex for junctionAutoTiles
@@ -1176,7 +1251,7 @@ window.addEventListener('load', () => {
       autoBlocks['grass_01'],
       autoBlocks['rock_01'],
       null
-    ], 100, 100);
+    ], 10, 10);
 
     // let map = [
     //   [
@@ -1212,6 +1287,7 @@ window.addEventListener('load', () => {
     // ];
 
     let t1 = performance.now();
+    // let rendered = await drawBlockMapSync(map);
     let rendered = await drawBlockMap(map);
     let t2 = performance.now();
     console.log(t2 - t1);
