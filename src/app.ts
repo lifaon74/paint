@@ -782,7 +782,7 @@ export class AutoTileHelper {
 
 window.addEventListener('load', () => {
   const renderer = new Renderer();
-
+  return;
   // document.body.addEventListener('click', () => Renderer.openImagesSelection((images: ImageResource[]) => {
   //   let canvas = Canvas.fromImageResource(images[0]);
   //   canvas.cut();
@@ -867,7 +867,7 @@ window.addEventListener('load', () => {
     return canvas;
   };
 
-  let drawBlockMap = async function(map: AutoBlock[][][]) {
+  let drawBlockMap = async function(map: AutoBlock[][][]): Promise<Canvas> {
     return new Promise<any>((resolve: any, reject: any) => {
       const canvas = new Canvas((map[0][0].length - 1) * Tile.width, (map[0].length - 1) * Tile.height);
       // canvas.append();
@@ -1106,9 +1106,9 @@ window.addEventListener('load', () => {
     console.log(a.src);
     // let b = a.resource;
     // a.src = 'test';
-    window.a = a;
-    window.b = b;
-    window.c = c;
+    (<any>window).a = a;
+    (<any>window).b = b;
+    (<any>window).c = c;
   };
 
   // return memoryTest();

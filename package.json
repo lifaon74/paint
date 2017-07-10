@@ -21,6 +21,7 @@
     "vinyl-source-stream": "latest"
   },
   "dependencies": {
+    "dom-event-object": "latest",
     "events-polyfill": "latest"
   }
 }

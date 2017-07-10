@@ -1,11 +1,11 @@
-import { EventObject } from './events.class';
+import { EventObject } from 'dom-event-object';
 
 export type PromiseFactory = () => Promise<any>;
 
 export class PromisePool extends EventObject {
 
   public promiseFactories: PromiseFactory[] = [];
-  private promises: Promise<any>[] = [];
+  protected promises: Promise<any>[] = [];
 
   static async all<T>(promiseFactories: PromiseFactory[]): Promise<any[]> {
     return new Promise<T[]>((resolve: any, reject: any) => {
@@ -59,10 +59,13 @@ export class PromisePool extends EventObject {
       this.dispatchEvent(new CustomEvent('complete'));
     }
 
+    let promiseFactory: PromiseFactory;
+    let promise: Promise<any>;
     while(Math.min(this.parallels - this.promises.length, this.promiseFactories.length) > 0) {
       // console.log('push promise');
-      let promiseFactory: PromiseFactory  = this.promiseFactories.shift();
-      let promise: Promise<any>           = promiseFactory();
+      promiseFactory  = this.promiseFactories.shift();
+      promise         = promiseFactory();
+
       this.dispatchEvent(new CustomEvent('call', {
         detail: {
           factory: promiseFactory,

@@ -1,4 +1,4 @@
-import { EventObject } from '../events.class';
+import { EventObject } from 'dom-event-object';
 
 export abstract class AsyncResource extends EventObject {
 

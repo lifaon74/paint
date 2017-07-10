@@ -1,10 +1,4 @@
-export type EventListenerCallback = (event: Event) => any;
 
-export interface EventListenerOptions {
-  once?: boolean;
-  passive?: boolean;
-  capture?: boolean;
-}
 
 
 export class EventListener {
@@ -65,23 +59,22 @@ export class EventListener {
   }
 }
 
+export type EventListenerCallback = (event: Event) => any;
 
-export class EventObject {
+export interface EventListenerOptions {
+  once?: boolean;
+  passive?: boolean;
+  capture?: boolean;
+}
+
+export class EventObject implements EventTarget {
   protected _eventTarget: EventTarget;
-
-  static createEvent(eventName: string, data: any): CustomEvent {
-    return new CustomEvent(eventName, {
-      detail: data,
-      bubbles: true,
-      cancelable: true
-    });
-  }
 
   constructor(target?: EventTarget) {
     this._eventTarget = target || document.createDocumentFragment();
   }
 
-  addEventListener(type: string, callback: EventListenerCallback, options?: EventListenerOptions): void {
+  addEventListener(type: string, callback: EventListenerCallback, options?: (EventListenerOptions | boolean)): void {
     this._eventTarget.addEventListener(type, callback, <any>options);
   }
 
@@ -89,12 +82,8 @@ export class EventObject {
     return this._eventTarget.dispatchEvent(event);
   };
 
-  removeEventListener(type: string, callback: EventListenerCallback, options?: EventListenerOptions): void {
+  removeEventListener(type: string, callback: EventListenerCallback, options?: (EventListenerOptions | boolean)): void {
     this._eventTarget.removeEventListener(type, callback, <any>options);
-  }
-
-  createListener(eventName: string, callback: EventListenerCallback, options?: EventListenerOptions): EventListener {
-    return new EventListener(this, eventName, callback, options);
   }
 }
 
