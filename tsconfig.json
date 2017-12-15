@@ -1,36 +1,50 @@
 {
   "compilerOptions": {
-    "target": "es2017",
-    "module": "commonjs",
-    "declaration": false,
-    "removeComments": true,
-    "noLib": false,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "lib": [
-      "es7",
-      "dom"
-    ],
-    "sourceMap": true,
-    "pretty": true,
+
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
+    "alwaysStrict": true,
+    "lib": [
+      "esnext", "dom"
+    ],
+
+
+    "declaration": false,
+    "downlevelIteration": false,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": true,
+    "inlineSourceMap": true,
+
+    "noEmitHelpers": false,
+    "noFallthroughCasesInSwitch": false,
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitUseStrict": false,
-    "noFallthroughCasesInSwitch": true,
+    "noLib": false,
+    "pretty": true,
+
+    "removeComments": true,
+    "sourceMap": false,
+
+    "strictNullChecks": false,
+
+
+    "module": "commonjs",
+    "target": "esnext",
+
     "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules"
+      "./node_modules/@types"
     ],
     "types": [
       "node"
     ]
   },
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
-    "dist",
-    "src"
+    "dist"
   ],
   "compileOnSave": false
 }

@@ -11,7 +11,7 @@ export class ImageRendering {
 
 
 export class Canvas {
-  static async  fromImageResource(image: ImageResource): Promise<Canvas> {
+  static async fromImageResource(image: ImageResource): Promise<Canvas> {
     return new Canvas(image.width, image.height).putImageResource(image);
   }
 

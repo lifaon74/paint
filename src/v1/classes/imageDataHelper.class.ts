@@ -223,6 +223,7 @@ export class Compositing {
         return Compositing.grayScaleDesaturation;
 
       case 'copy':
+        return Compositing.copy;
       default:
         return Compositing.destinationOver;
     }
@@ -237,14 +238,14 @@ export class Compositing {
   ): ImageData {
     if(destination === null) { destination = new ImageData(sw + dx, sh + dy); }
 
-    let sx_start  = Math.max(0, -dx, Math.min(source.width, sx)); // sx_start in [max(0, -dx), width]
-    let sx_end    = Math.max(sx, Math.min(source.width, sx + Math.min(sw, destination.width - dx))); // sx_end in [sx, min(source_width, destination_width - dx)]
+    const sx_start: number  = Math.max(0, -dx, Math.min(source.width, sx)); // sx_start in [max(0, -dx), width]
+    const sx_end: number    = Math.max(sx, Math.min(source.width, sx + Math.min(sw, destination.width - dx))); // sx_end in [sx, min(source_width, destination_width - dx)]
 
-    let sy_start  = Math.max(0, -dy, Math.min(source.height, sy));
-    let sy_end    = Math.max(sy, Math.min(source.height, sy + Math.min(sh, destination.height - dy)));
+    const sy_start: number  = Math.max(0, -dy, Math.min(source.height, sy));
+    const sy_end: number    = Math.max(sy, Math.min(source.height, sy + Math.min(sh, destination.height - dy)));
 
-    let x_offset = dx - sx;
-    let y_offset = dy - sy;
+    const x_offset: number  = dx - sx;
+    const y_offset: number  = dy - sy;
 
     // console.log(sx_start, sx_end, sy_start, sy_end);
 
@@ -424,3 +425,4 @@ export class ImageDataHelper {
   }
 
 }
+

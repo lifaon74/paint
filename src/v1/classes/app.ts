@@ -1,13 +1,13 @@
-import { Canvas, ImageRendering } from './classes/canvas.class';
-import { SortedArray } from './classes/sortedArray.class';
-import { ImageResource } from './classes/resources/imageResource.class';
-import { ResourceLoader, ResourceDescriptor } from './classes/resources/resourceLoader.class';
-import { AsyncResource } from './classes/resources/asyncResource.class';
-import { AudioResource } from './classes/resources/audioResource.class';
-import { ImageDataHelper, Compositing } from './classes/imageDataHelper.class';
-import { DeepMap, Memoize } from './classes/deepMap.class';
+import { Canvas, ImageRendering } from './canvas.class';
+import { SortedArray } from './sortedArray.class';
+import { ImageResource } from './resources/imageResource.class';
+import { ResourceLoader, ResourceDescriptor } from './resources/resourceLoader.class';
+import { AsyncResource } from './resources/asyncResource.class';
+import { AudioResource } from './resources/audioResource.class';
+import { ImageDataHelper, Compositing } from './imageDataHelper.class';
+import { DeepMap, Memoize } from './deepMap.class';
 
-import { PromiseFactory, PromisePool } from './classes/promisePool.class';
+import { PromiseFactory, PromisePool } from './promisePool.class';
 
 
 
@@ -781,8 +781,8 @@ export class AutoTileHelper {
 
 
 window.addEventListener('load', () => {
-  const renderer = new Renderer();
-  return;
+  // const renderer = new Renderer();
+  // return;
   // document.body.addEventListener('click', () => Renderer.openImagesSelection((images: ImageResource[]) => {
   //   let canvas = Canvas.fromImageResource(images[0]);
   //   canvas.cut();
@@ -901,7 +901,7 @@ window.addEventListener('load', () => {
   };
 
   let compositionTest = async function() {
-    return ResourceLoader.loadMany([
+    return ResourceLoader.load([
       new ResourceDescriptor('image', ['./assets/images/other/source.png']),
       new ResourceDescriptor('image', ['./assets/images/other/destination.png'])
     ]).then(async function(resources: ImageResource[]) {
@@ -917,12 +917,12 @@ window.addEventListener('load', () => {
           )
         )).append(document.body);
 
-        Compositing.initWorker(4, './classes/imageData.worker.js');
-        Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
-          Canvas.fromImageResource(
-            ImageResource.fromImageData(destinationImageData)
-          ).then((canvas: Canvas) => canvas.append(document.body));
-        }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
+        // Compositing.initWorker(4, './classes/imageData.worker.js');
+        // Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
+        //   Canvas.fromImageResource(
+        //     ImageResource.fromImageData(destinationImageData)
+        //   ).then((canvas: Canvas) => canvas.append(document.body));
+        // }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
 
 
         let promises: Promise<any>[] = [];
@@ -931,11 +931,11 @@ window.addEventListener('load', () => {
           // Compositing.apply(filter, source.imageData, copy);
           // Compositing.SIMDSourceOver(source.imageData, copy);
 
-          promises.push(new Promise((resolve:any, reject:any) => {
-            Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
-              resolve();
-            }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
-          }));
+          // promises.push(new Promise((resolve:any, reject:any) => {
+          //   Compositing.workerApply((sourceImageData: ImageData, destinationImageData: ImageData) => {
+          //     resolve();
+          //   }, filterName, ImageDataHelper.copy(source.imageData), ImageDataHelper.copy(copy), void 0, void 0, void 0, void 0, x, y);
+          // }));
         }
         Promise.all(promises).then(() => {
           let t2 = Date.now();

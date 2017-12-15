@@ -9,10 +9,11 @@ const source = require('vinyl-source-stream');
 
 const tsProject = ts.createProject('tsconfig.json');
 
-const SRC_DIR = 'src';
+const SRC_DIR = 'src/v3';
 const SRC_TS_FILES = [path.join(SRC_DIR, '**', '*.ts')];
 const SRC_OTHER_FILES = [
   path.join(SRC_DIR, '**'),
+  path.join(SRC_DIR, '../assets', '**'),
   '!' + SRC_TS_FILES[0]
 ];
 
@@ -33,10 +34,10 @@ gulp.task('browserify', ['build.js'], function() {
 });
 
 gulp.task('browserify-worker', ['build.js'], function() {
-  return browserify('dist/classes/imageData.worker.js')
+  return browserify('dist/classes/compositing/compositing.worker.js')
     .bundle()
     .on('error', gutil.log)
-    .pipe(source('imageData.worker.js'))
+    .pipe(source('compositing.worker.js'))
     .pipe(gulp.dest('dist/classes'));
 });
 
@@ -46,13 +47,13 @@ gulp.task('build.html', () => {
 });
 
 
-gulp.task('watch', [
+const watchTasks =[
   'build.js', 'build.html',
-  'browserify', 'browserify-worker'
-], () => {
-  gulp.watch(path.join(SRC_DIR, '**'), [
-    'build.js', 'build.html',
-    'browserify', 'browserify-worker'
-  ]);
+  'browserify',
+  // 'browserify-worker'
+];
+
+gulp.task('watch', watchTasks, () => {
+  gulp.watch(path.join(SRC_DIR, '**'), watchTasks);
 });
 

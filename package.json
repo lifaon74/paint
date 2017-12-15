@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "dom-event-object": "latest",
-    "events-polyfill": "latest"
+    "events-polyfill": "latest",
+    "png-js": "^0.1.1"
   }
 }
