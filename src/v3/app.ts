@@ -282,63 +282,271 @@ export class Octree {
     return depth - 1;
   }
 
-  // static from3DTexture(texture: Uint8Array): Octree {
-  //   console.log(texture.length);
-  //   // const depth: number = Math.round(Math.log2(Math.pow(texture.length / 4, 1 / 3)));
-  //   const depth: number = Math.round(Math.pow(texture.length / 4, 1 / 6));
-  //   if((depth < 1) || (Math.pow(2, depth * 3) !== (texture.length / 4))) {
-  //     throw new Error('Invalid data size : array side must be a power of 2 with a min side of 2');
-  //   }
-  //
-  //   const data: Uint8Array = new Uint8Array(this.computeMaxOctreeSize(depth));
-  //   let index: number = 0;
-  //   if(depth === 1) {
-  //     data[index++] = 0b00000000;
-  //     for (let i = 0; i < 32; i++) {
-  //       data[index++] = texture[i];
-  //     }
-  //   } else {
-  //     console.log('else');
-  //     data[index++] = 0b11111111;
-  //   }
-  //   console.log(depth, data.length);
-  // }
-  //
-  // static buildOctree(depth: number, texture: Uint8Array): number[] {
-  //
-  // }
+  static compute3DTextureDepth(texture: Uint8Array): number {
+    const depth: number = Math.round(Math.log2(Math.pow(texture.length / 4, 1 / 3)));
+    if((depth < 1) || (Math.pow(2, depth * 3) !== (texture.length / 4))) {
+      throw new Error('Invalid data size : array side must be a power of 2 with a min side of 2');
+    }
+    return depth;
+  }
+
+  static from3DTexture(texture: Uint8Array): Octree {
+    const depth: number = this.compute3DTextureDepth(texture);
+    const data: Uint8Array = new Uint8Array(this.computeMaxOctreeSize(depth));
+    const tree: Octree = new Octree(depth, data);
+    const side: number = tree.side;
+    let i: number = 0;
+
+    for(let z = 0; z < side; z++) {
+      for (let y = 0; y < side; y++) {
+        for (let x = 0; x < side; x++) {
+          tree.setColorAt(x, y, z, texture.subarray(i, i + 4));
+          i += 4;
+        }
+      }
+    }
+
+    return tree;
+  }
+
 
   public depth: number;
   public data: Uint8Array;
+  public mappedChunk: Uint8Array;
 
-  constructor(depth: number, data: Uint8Array) {
+  constructor(depth: number, data: Uint8Array, mappedChunk: Uint8Array = new Uint8Array(Math.ceil(data.length / 33 / 8))) {
     this.depth = depth;
     this.data = data; // [(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1)]
+    this.mappedChunk = mappedChunk;
   }
 
   get side(): number {
     return 0x1 << this.depth; // Math.pow(2, this.depth)
   }
 
+  setMapped(index: number, value: boolean | number): void {
+    index = Math.floor(index / 33);
+    if(value) {
+      this.mappedChunk[index >> 3] |= (0x1 << (index % 8));
+    } else {
+      this.mappedChunk[index >> 3] &= ~(0x1 << (index % 8));
+    }
+  }
+
+  getMapped(index: number): number {
+    index = Math.floor(index / 33);
+    return this.mappedChunk[index >> 3] & (0x1 << (index % 8));
+  }
+
+  getFirstAvailableChunk(): number {
+    let value: number;
+    for(let i = 0, l = this.mappedChunk.length; i < l; i++) {
+      value = this.mappedChunk[i];
+      if(value !== 0b11111111) {
+        for(let j = 0; j <= 8; j++) {
+          if((value & (0x1 << j)) === 0) {
+            const index: number = (i << 3) | j;
+            return ((index * 33) < this.data.length) ? index : -1;
+          }
+        }
+      }
+    }
+    return -1;
+  }
+
+  setColorAt(x: number, y: number, z: number, color: Uint8Array): void {
+    let depth: number = this.depth;
+    let dataIndex: number = 0;
+    // let side = 0x1 << (depth - 1);
+    let depthOffset: number = depth - 1;
+
+    if(!this.getMapped(dataIndex)) {
+      this.setMapped(dataIndex, true);
+    }
+
+    // insert color at proper place
+    while(depth > 0) {
+      const coordsOffset: number = (
+        ((x >> depthOffset) & 0x1)
+        | (((y >> depthOffset) & 0x1) << 1)
+        | (((z >> depthOffset) & 0x1) << 2)
+      ) >>> 0;
+      const _dataIndex: number = dataIndex + 1 + coordsOffset * 4;
+
+      if(depth === 1) {
+        // for depth === 1 mask should be equals to 'color' by default
+        // this.data[dataIndex] &= ~(0x1 << coordsOffset);
+
+        this.data[_dataIndex    ] = color[0];
+        this.data[_dataIndex + 1] = color[1];
+        this.data[_dataIndex + 2] = color[2];
+        this.data[_dataIndex + 3] = color[3];
+
+        // this.mergeColorsAt(dataIndex);
+        break;
+      } else {
+
+        if((this.data[dataIndex] >> coordsOffset) & 0x1) { // is index
+          dataIndex = (
+            (this.data[_dataIndex])
+            | (this.data[_dataIndex + 1] << 8)
+            | (this.data[_dataIndex + 2] << 16)
+            | (this.data[_dataIndex + 3] << 24)
+          ) >>> 0;
+        } else {
+          if(
+            (this.data[_dataIndex    ] === color[0])
+            && (this.data[_dataIndex + 1] === color[1])
+            && (this.data[_dataIndex + 2] === color[2])
+            && (this.data[_dataIndex + 3] === color[3])
+          ) { // same colors
+            // here we are not at the deepest lvl, colors are the same and chunk should already be optimized
+            break; // touch nothing
+          } else { // colors are different => must split current color to another chunk
+
+            const newIndex: number = this.getFirstAvailableChunk() * 33;
+            if(newIndex < 0) throw new Error(`Missing space`);
+            this.setMapped(newIndex, true);
+
+            // init new chunk with previous color
+            for(let i = newIndex + 1, l = i + 32; i < l; i += 4) {
+              this.data[i    ] = this.data[_dataIndex    ];
+              this.data[i + 1] = this.data[_dataIndex + 1];
+              this.data[i + 2] = this.data[_dataIndex + 2];
+              this.data[i + 3] = this.data[_dataIndex + 3];
+            }
+
+            // replace mask color by index
+            this.data[dataIndex] |= (0x1 << coordsOffset);
+            // replace color by index
+            this.data[_dataIndex    ] = newIndex;
+            this.data[_dataIndex + 1] = newIndex >> 8;
+            this.data[_dataIndex + 2] = newIndex >> 16;
+            this.data[_dataIndex + 3] = newIndex >> 24;
+
+            dataIndex = newIndex;
+            // console.log('assign new chunk');
+          }
+        }
+
+        // console.log('dataIndex', dataIndex);
+      }
+
+      depth--;
+      depthOffset--;
+    }
+  }
+
   getColorAt(x: number, y: number, z: number): Uint8Array {
     let depth: number = this.depth;
-    let index: number = 0;
-    let side = 0x1 << (depth - 1);
+    let dataIndex: number = 0;
+    // let side = 0x1 << (depth - 1);
+    let depthOffset: number = depth - 1;
 
     while(depth > 0) {
-      const offset: number = Math.floor(x / side) + Math.floor(y / side) * 2 + Math.floor(z / side) * 4; // x + y * 2 + z * 4
+      // const offset: number = Math.floor(x / side) + Math.floor(y / side) * 2 + Math.floor(z / side) * 4; // x + y * 2 + z * 4
+      const coordsOffset: number = (
+        ((x >> depthOffset) & 0x1)
+        | (((y >> depthOffset) & 0x1) << 1)
+        | (((z >> depthOffset) & 0x1) << 2)
+      ) >>> 0; // x + y * 2 + z * 4
+      const _dataIndex: number = dataIndex + 1 + coordsOffset * 4;
 
-      if((this.data[index] >> offset) & 0x1) {
-        return new Uint8Array(this.data.buffer, index + 1, 4);
-      } else {
-        const i: number = index + offset * 4;
-        index = (this.data[i] << 24) | (this.data[i + 1] << 16) | (this.data[i + 2] << 8) | (this.data[i + 3]);
+      // console.log('coordsOffset', coordsOffset);
+      if((this.data[dataIndex] >> coordsOffset) & 0x1) {
+        dataIndex = (
+          (this.data[_dataIndex])
+          | (this.data[_dataIndex + 1] << 8)
+          | (this.data[_dataIndex + 2] << 16)
+          | (this.data[_dataIndex + 3] << 24)
+        ) >>> 0;
+        // console.log('dataIndex', dataIndex);
         depth--;
-        side >>= 1;
+        depthOffset--;
+      } else {
+        return this.data.subarray(_dataIndex, _dataIndex + 4);
+        // return new Uint8Array(this.data.buffer, _dataIndex, 4);
+      }
+    }
+
+    throw new Error('Invalid coords');
+  }
+
+
+  protected mergeColorsAt(dataIndex: number): void {
+
+    for(let i = dataIndex + 1, l = i + 32; i < l; i += 4) {
+      this.data[i    ] = this.data[_dataIndex    ];
+      this.data[i + 1] = this.data[_dataIndex + 1];
+      this.data[i + 2] = this.data[_dataIndex + 2];
+      this.data[i + 3] = this.data[_dataIndex + 3];
+    }
+  }
+
+}
+
+
+
+
+
+function getTextureColorAt(x: number, y: number, z: number, texture: Uint8Array): Uint8Array {
+  const depth: number = Octree.compute3DTextureDepth(texture);
+  const index: number = x | (y << depth) | (z << (depth << 1));
+  return new Uint8Array(texture.buffer, index * 4, 4);
+}
+
+function generateRandom3DTexture(side: number): Uint8Array {
+  const data: Uint8Array = new Uint8Array(side * side * side * 4);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = Math.random() * 256;
+  }
+  return data;
+}
+
+function generate3DTexture(side: number, callback: (x: number, y: number, z: number) => Uint8Array): Uint8Array {
+  const data: Uint8Array = new Uint8Array(side * side * side * 4);
+  let j: number = 0;
+  for(let z = 0; z < side; z++) {
+    for (let y = 0; y < side; y++) {
+      for (let x = 0; x < side; x++) {
+        const color: Uint8Array = callback(x, y, z);
+        for(let i = 0; i < 4; i++) {
+          data[j++] = color[i];
+        }
+      }
+    }
+  }
+  return data;
+}
+
+
+
+function testImport(texture: Uint8Array): void {
+  const tree = Octree.from3DTexture(texture);
+  // console.log(tree.data.join(', '));
+  // console.log('length:', tree.data.length);
+  // for(let i = 0; i < tree.data.length / 33; i++) {
+  //   console.log(tree.data.slice(i * 33, (i + 1) * 33).join(', '));
+  // }
+  //
+  // console.log('--->', tree.mappedChunk.join(', '));
+
+  const side: number = tree.side;
+  for(let x = 0; x < side; x++) {
+    for(let y = 0; y < side; y++) {
+      for(let z = 0; z < side; z++) {
+        const color1: Uint8Array = getTextureColorAt(x, y, z, texture);
+        const color2: Uint8Array = tree.getColorAt(x, y, z);
+        for(let i = 0; i < 4; i++) {
+          if(color1[i] !== color2[i]) {
+            throw new Error(`Invalid color at position ${x}, ${y}, ${z} : ${color1.join(', ')} - ${color2.join(', ')}`);
+          }
+        }
       }
     }
   }
 }
+
 
 function testOctree() {
   // console.log(Octree.computeMaxOctreeDepth(2**30));
@@ -348,26 +556,52 @@ function testOctree() {
   //   ...blue, ...blue, ...blue, ...blue
   // ]));
 
-  const chunkDepth1 = [
+  const chunkDepth1 = new Uint8Array([
     ...red, ...red, ...green, ...green,
     ...blue, ...blue, ...blue, ...blue
-  ];
+  ]);
 
-  const chunkDepth2 = [
+  const chunkDepth2 = new Uint8Array([
     ...chunkDepth1, ...chunkDepth1, ...chunkDepth1, ...chunkDepth1,
     ...chunkDepth1, ...chunkDepth1, ...chunkDepth1, ...chunkDepth1
-  ];
+  ]);
 
-  const tree = new Octree(1, new Uint8Array([0b11111111, ...chunkDepth1]));
+  const chunkDepth3 = new Uint8Array([
+    ...chunkDepth2, ...chunkDepth2, ...chunkDepth2, ...chunkDepth2,
+    ...chunkDepth2, ...chunkDepth2, ...chunkDepth2, ...chunkDepth2
+  ]);
+
+  const testTexture = generate3DTexture(4, (x, y, z) => new Uint8Array([x, y, z, 0]));
+  const uniformTexture = generate3DTexture(4, (x, y, z) => new Uint8Array([1, 1, 1, 123]));
+  const emptyTexture = generate3DTexture(4, (x, y, z) => new Uint8Array([0, 0, 0, 0]));
+
   // const tree = Octree.from3DTexture(new Uint8Array(chunkDepth1));
-  // const tree = Octree.from3DTexture(new Uint8Array(chunkDepth2));
+  testImport(testTexture);
+  testImport(uniformTexture);
+  testImport(emptyTexture);
+  testImport(generateRandom3DTexture(8));
+
+  const tree = Octree.from3DTexture(uniformTexture);
+
+  // tree.setColorAt(0, 0, 0, new Uint8Array([1, 1, 1, 1]));
+  // console.log('---');
+  // tree.setColorAt(1, 0, 0, new Uint8Array([2, 2, 2, 2]));
+  // console.log('---');
+  // tree.setColorAt(1, 0, 2, new Uint8Array([3, 3, 3, 3]));
+
+  console.log(tree.data.join(', '));
 
   // console.log(tree.side);
-  console.log(tree.getColorAt(1, 1, 1));
+  console.log(tree.getColorAt(0, 0, 0));
+
+  // console.log(tree.getColorAt(0, 0, 1));
+
 }
 
 
-window.addEventListener('load', () => {
-  testOctree();
-  // test().catch(_ => console.error(_));
-});
+testOctree();
+
+// window.addEventListener('load', () => {
+//   testOctree();
+//   // test().catch(_ => console.error(_));
+// });
