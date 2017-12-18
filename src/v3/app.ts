@@ -267,9 +267,44 @@ function canvasKey(){
   });
 }
 
-export interface FlattenOctree {
-  index: number;
-  data: Uint8Array;
+// HARDCODED
+function logOctreeData(data: Uint8Array): void {
+  for(let i = 0; i < data.length / 33; i++) {
+    console.log(data.slice(i * 33, (i + 1) * 33).join(', '));
+  }
+  console.log('length: ', data.length);
+}
+
+
+function ReadAsUint32(array: Uint8Array, index: number): number {
+  return (
+    (array[index    ])
+    | (array[index + 1] << 8)
+    | (array[index + 2] << 16)
+    | (array[index + 3] << 24)
+  ) >>> 0;
+}
+
+function WriteAsUint32(array: Uint8Array, index: number, value: number): void {
+  array[index    ] = value;
+  array[index + 1] = value >> 8;
+  array[index + 2] = value >> 16;
+  array[index + 3] = value >> 24;
+}
+
+function CompareAsUint32(array1: Uint8Array, index1: number, array2: Uint8Array, index2: number): boolean {
+  return (array1[index1    ] === array2[index2    ])
+      && (array1[index1 + 1] === array2[index2 + 1])
+      && (array1[index1 + 2] === array2[index2 + 2])
+      && (array1[index1 + 3] === array2[index2 + 3]);
+}
+
+function GetCoordsOffset(x: number, y: number, z: number, depthOffset: number): number {
+  return (
+    ((x >> depthOffset) & 0x1)
+    | (((y >> depthOffset) & 0x1) << 1)
+    | (((z >> depthOffset) & 0x1) << 2)
+  ) >>> 0;
 }
 
 export class Octree {
@@ -318,10 +353,10 @@ export class Octree {
   public data: Uint8Array;
   public mapping: Uint8Array;
 
-  constructor(depth: number, data: Uint8Array, mapping?: Uint8Array) {
+  constructor(depth: number, data: Uint8Array) {
     this.depth = depth;
     this.data = data; // [(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1)]
-    this.mapping = (mapping === void 0) ? this.computeMapping() : mapping;
+    this.refreshMapping();
   }
 
   get side(): number {
@@ -349,49 +384,40 @@ export class Octree {
       if(value !== 0b11111111) {
         for(let j = 0; j <= 8; j++) {
           if((value & (0x1 << j)) === 0) {
-            const index: number = ((i << 3) | j) * 33;
-            return (index < this.data.length) ? index : -1;
+            return ((i << 3) | j) * 33;
           }
         }
       }
     }
-    return -1;
+    return this.data.length;
   }
+
 
   /**
    * Explores reachable octrees and return mapping according to it.
-   * @return {Uint8Array}
    */
-  computeMapping(): Uint8Array {
-    const mapping: Uint8Array = new Uint8Array(Math.ceil(this.data.length / 33 / 8));
+  refreshMapping(): void {
+    this.mapping = new Uint8Array(Math.ceil(this.data.length / 33 / 8));
     this.explore((index: number) => {
       index = Math.floor(index / 33);
-      mapping[index >> 3] |= (0x1 << (index % 8));
+      this.mapping[index >> 3] |= (0x1 << (index % 8));
     });
-    return mapping;
   }
 
   explore(callback: (index: number, path: [number, number, number][]) => void, dataIndex: number = 0, path: [number, number, number][] = []): void {
     callback(dataIndex, path);
-
     let _dataIndex: number = dataIndex + 1;
     for(let i = 0; i < 8; i++) {
       if((this.data[dataIndex] >> i) & 0x1) {
         this.explore(
           callback,
-          (
-            (this.data[_dataIndex])
-            | (this.data[_dataIndex + 1] << 8)
-            | (this.data[_dataIndex + 2] << 16)
-            | (this.data[_dataIndex + 3] << 24)
-          ) >>> 0,
+          ReadAsUint32(this.data, _dataIndex),
           path.concat([i % 2, (i >> 1) % 2, (i >> 2) % 2])
         );
       }
       _dataIndex += 4;
     }
   }
-
 
 
   /**
@@ -407,73 +433,35 @@ export class Octree {
     let dataIndex: number = 0;
     let depthOffset: number = depth - 1;
 
-    if(!this.getMapping(dataIndex)) {
-      this.setMapping(dataIndex, true);
-    }
-
     // insert value at proper place
     while(depth > 0) {
-      const coordsOffset: number = (
-        ((x >> depthOffset) & 0x1)
-        | (((y >> depthOffset) & 0x1) << 1)
-        | (((z >> depthOffset) & 0x1) << 2)
-      ) >>> 0;
+      const coordsOffset: number = GetCoordsOffset(x, y, z, depthOffset);
       const _dataIndex: number = dataIndex + 1 + coordsOffset * 4;
 
       if(depth === 1) {
         // for depth === 1 mask should be equals to 'value' by default
         // this.data[dataIndex] &= ~(0x1 << coordsOffset);
-        this.data[_dataIndex    ] = value[0];
-        this.data[_dataIndex + 1] = value[1];
-        this.data[_dataIndex + 2] = value[2];
-        this.data[_dataIndex + 3] = value[3];
+        this.data.set(value, _dataIndex);
         break;
       } else {
 
-        if((this.data[dataIndex] >> coordsOffset) & 0x1) { // is index
-          dataIndex = (
-              (this.data[_dataIndex    ])
-            | (this.data[_dataIndex + 1] << 8)
-            | (this.data[_dataIndex + 2] << 16)
-            | (this.data[_dataIndex + 3] << 24)
-          ) >>> 0;
+        if((this.data[dataIndex] >> coordsOffset) & 0x1) { // is index type
+          dataIndex = ReadAsUint32(this.data, _dataIndex);
         } else {
-          if(
-               (this.data[_dataIndex    ] === value[0])
-            && (this.data[_dataIndex + 1] === value[1])
-            && (this.data[_dataIndex + 2] === value[2])
-            && (this.data[_dataIndex + 3] === value[3])
-          ) { // same values
-            // here we are not at the deepest lvl, values are the same and octree should already be optimized
-            break; // touch nothing
+          if(CompareAsUint32(this.data, _dataIndex, value, 0)) { // same values
+            break; // here we are not at the deepest lvl, values are the same and octree should already be optimized => touch nothing
           } else { // values are different => must split current value to another octree
+            const newIndex: number = this.createOctree(this.data.subarray(_dataIndex, _dataIndex + 4));
 
-            const newIndex: number = this.getFirstAvailableMappingIndex();
-            if(newIndex < 0) throw new Error(`Missing space`);
-            this.setMapping(newIndex, true);
-
-            // init new octree with previous value
-            for(let i = newIndex + 1, l = i + 32; i < l; i += 4) {
-              this.data[i    ] = this.data[_dataIndex    ];
-              this.data[i + 1] = this.data[_dataIndex + 1];
-              this.data[i + 2] = this.data[_dataIndex + 2];
-              this.data[i + 3] = this.data[_dataIndex + 3];
-            }
-
-            // replace mask value by index
+            // replace mask value by index type
             this.data[dataIndex] |= (0x1 << coordsOffset);
-            // replace value by index
-            this.data[_dataIndex    ] = newIndex;
-            this.data[_dataIndex + 1] = newIndex >> 8;
-            this.data[_dataIndex + 2] = newIndex >> 16;
-            this.data[_dataIndex + 3] = newIndex >> 24;
+
+            // replace value by newIndex
+            WriteAsUint32(this.data, _dataIndex, newIndex);
 
             dataIndex = newIndex;
-            // console.log('assign new octree');
           }
         }
-
-        // console.log('dataIndex', dataIndex);
       }
 
       depth--;
@@ -493,26 +481,14 @@ export class Octree {
     let depthOffset: number = this.depth - 1;
 
     while(depthOffset >= 0) {
-      const coordsOffset: number = (
-        ((x >> depthOffset) & 0x1)
-        | (((y >> depthOffset) & 0x1) << 1)
-        | (((z >> depthOffset) & 0x1) << 2)
-      ) >>> 0; // x + y * 2 + z * 4
+      const coordsOffset: number = GetCoordsOffset(x, y, z, depthOffset);
       const _dataIndex: number = dataIndex + 1 + coordsOffset * 4;
 
-      // console.log('coordsOffset', coordsOffset);
       if((this.data[dataIndex] >> coordsOffset) & 0x1) {
-        dataIndex = (
-          (this.data[_dataIndex])
-          | (this.data[_dataIndex + 1] << 8)
-          | (this.data[_dataIndex + 2] << 16)
-          | (this.data[_dataIndex + 3] << 24)
-        ) >>> 0;
-        // console.log('dataIndex', dataIndex);
+        dataIndex = ReadAsUint32(this.data, _dataIndex);
         depthOffset--;
       } else {
         return this.data.subarray(_dataIndex, _dataIndex + 4);
-        // return new Uint8Array(this.data.buffer, _dataIndex, 4);
       }
     }
 
@@ -521,9 +497,50 @@ export class Octree {
 
 
   clone(): Octree {
-    return new Octree(this.depth, this.data.slice(), this.mapping.slice());
+    return new Octree(this.depth, this.data.slice());
   }
 
+
+  createOctree(value?: Uint8Array): number {
+    const index: number = this.getFirstAvailableMappingIndex();
+    if (index >= this.data.length) throw new Error(`Missing space`);
+    this.setMapping(index, true);
+
+    if (value) {
+      for(let i = index + 1, l = i + 32; i < l; i += 4) {
+        this.data.set(value, i)
+      }
+    }
+
+    return index;
+  }
+
+  moveOctree(sourceIndex: number, destinationIndex: number): void {
+    if(sourceIndex !== destinationIndex) {
+      this.data.set(this.data.subarray(sourceIndex, sourceIndex + 33), destinationIndex);
+      this.setMapping(sourceIndex, false);
+      this.setMapping(destinationIndex, true);
+
+      this.findOctreesUsingIndex(sourceIndex, (index: number, subIndexIndex: number) => {
+        WriteAsUint32(this.data, subIndexIndex, destinationIndex);
+      });
+    }
+  }
+
+  findOctreesUsingIndex(sourceIndex: number, callback: (index: number, subIndexIndex: number) => void): void {
+    this.explore((index: number) => {
+      let subIndexIndex: number = index + 1;
+      for(let i = 0; i < 8; i++) {
+        if((this.data[index] >> i) & 0x1) { // is index type
+          if(ReadAsUint32(this.data, subIndexIndex) === sourceIndex) {
+            // console.log('-> found octree using index', sourceIndex);
+            callback(index, subIndexIndex);
+          }
+        }
+        subIndexIndex += 4;
+      }
+    });
+  }
 
 
   /**
@@ -531,60 +548,46 @@ export class Octree {
    * @return {Octree}
    */
   compact(): Octree {
-    this.mapping = this.computeMapping();
-    this.mergeValuesAtIndex(0);
+    this.compactValues();
     this.removeDuplicatedOctrees();
-    return new Octree(this.depth, this.removeEmptyData());
+    this.removeEmptyData();
+    return this;
   }
 
+  
   /**
-   * Tries to merge sub octree according to their values
-   * @param {number} dataIndex
+   * Tries to merge sub octree according to their values.
    * @return {Uint8Array | null}
    */
-  mergeValuesAtIndex(dataIndex: number): Uint8Array | null {
+  compactValues(): void {
+    this.compactValuesAtIndex(0);
+    this.refreshMapping();
+  }
+  
+  protected compactValuesAtIndex(dataIndex: number): Uint8Array | null {
     let _dataIndex: number = dataIndex + 1;
-    let newIndex: number;
     let value:  Uint8Array | null = null;
     let subValue:  Uint8Array | null;
 
     for (let i = 0; i < 8; i++) { // for each sub-tree
-      if ((this.data[dataIndex] >> i) & 0x1) { // is index
-        newIndex = (
-          (this.data[_dataIndex    ])
-          | (this.data[_dataIndex + 1] << 8)
-          | (this.data[_dataIndex + 2] << 16)
-          | (this.data[_dataIndex + 3] << 24)
-        ) >>> 0;
-
-        subValue = this.mergeValuesAtIndex(newIndex);
+      if ((this.data[dataIndex] >> i) & 0x1) { // is index type
+        subValue = this.compactValuesAtIndex(ReadAsUint32(this.data, _dataIndex));
 
         if(subValue === null) {
           return null;
         } else { // here the sub-octree returned a value so it can be merged
-          this.data[dataIndex] &= ~(0x1 << i); // convert to value
-          this.data[_dataIndex    ] = subValue[0];
-          this.data[_dataIndex + 1] = subValue[1];
-          this.data[_dataIndex + 2] = subValue[2];
-          this.data[_dataIndex + 3] = subValue[3];
-          // this.data.set(new Uint8Array(33), index);
-          this.setMapping(newIndex, false);
+          this.data[dataIndex] &= ~(0x1 << i); // convert to value type
+          this.data.set(subValue, _dataIndex); // set value
+          // at this point wer don't know if octree is used somewhere else
         }
-      } else { // is value
+      } else { // is value type
         subValue = this.data.subarray(_dataIndex, _dataIndex + 4);
       }
 
       if(value === null) {
         value = subValue;
-      } else {
-        if(
-          (subValue[0] !== value[0])
-          || (subValue[1] !== value[1])
-          || (subValue[2] !== value[2])
-          || (subValue[3] !== value[3])
-        ) {
-          return null;
-        }
+      } else if(!CompareAsUint32(subValue, 0, value, 0)) {
+        return null;
       }
 
       _dataIndex += 4;
@@ -592,7 +595,6 @@ export class Octree {
 
     return value;
   }
-
 
   removeDuplicatedOctrees(): void {
     const octrees: number[] = [];
@@ -618,32 +620,21 @@ export class Octree {
         }
 
         if(k === 33) { // all values equals => duplicate octree
-          console.log('found duplicate octree', octree1, octree2);
+          // console.log('found duplicate octree', octree1, octree2);
+
           this.setMapping(octree2, false);
           octrees.splice(j, 1);
 
           for(let m = 0, l = octrees.length; m < l; m++) { // search octree with octree2 as index
             octree3 = octrees[m];
-
             let _octree3: number = octree3 + 1;
 
             for(let n = 0; n < 8; n++) {
               if((this.data[octree3] >> n) & 0x1) { // is index
-                const newIndex: number = (
-                  (this.data[_octree3])
-                  | (this.data[_octree3 + 1] << 8)
-                  | (this.data[_octree3 + 2] << 16)
-                  | (this.data[_octree3 + 3] << 24)
-                ) >>> 0;
-
-                if(newIndex === octree2) { // octree3 index match octree2 index => octree3 has a index on octree2 that is a duplicate
-                  console.log('-found octree using index', octree3);
+                if(ReadAsUint32(this.data, _octree3) === octree2) { // octree3 index match octree2 index => octree3 has a index on octree2 that is a duplicate
+                  // console.log('-found octree using index', octree3);
                   // replace octree2 by octree 1
-                  this.data[_octree3    ] = octree1;
-                  this.data[_octree3 + 1] = octree1 >> 8;
-                  this.data[_octree3 + 2] = octree1 >> 16;
-                  this.data[_octree3 + 3] = octree1 >> 24;
-
+                  WriteAsUint32(this.data, _octree3, octree1);
                   i = Math.min(i, m - 1); // because octree3 (at index m) changed, we need to re-inspect all from 'm'
                 }
               }
@@ -706,38 +697,36 @@ export class Octree {
   // }
 
   /**
-   * Creates data without non-used octrees
-   * @return {Uint8Array}
+   * Remove non-used octrees
    */
-  removeEmptyData(): Uint8Array {
-    let count: number = 0;
-    let value: number;
-    for (let i = 0, l = this.mapping.length; i < l; i++) {
-      value = this.mapping[i];
-      for (let j = 0; j < 8; j++) {
-        count += (value >> j) & 0x1;
-      }
+  removeEmptyData(hard: boolean = false): void {
+    this.reorderData();
+    if(hard) {
+      this.data = this.data.slice(0, this.getFirstAvailableMappingIndex());
+      this.refreshMapping();
+    } else {
+      this.data = this.data.subarray(0, this.getFirstAvailableMappingIndex());
     }
-
-    const data: Uint8Array = new Uint8Array(count * 33);
-
-    let sourceDataIndex: number = 0;
-    let destinationDataIndex: number = 0;
-    for (let i = 0, l = this.mapping.length; i < l; i++) {
-      value = this.mapping[i];
-      for (let j = 0; j < 8; j++) {
-        if((value >> j) & 0x1) {
-          data.set(this.data.subarray(destinationDataIndex, destinationDataIndex + 33), sourceDataIndex);
-          sourceDataIndex += 33;
-        }
-        destinationDataIndex += 33;
-      }
-    }
-
-    return data;
   }
 
-
+  /**
+   * Reorder data by putting used octrees first
+   */
+  reorderData(): void {
+    let value: number;
+    let sourceIndex: number = 0;
+    let destinationIndex: number = 0;
+    for (let i = 0, l = this.mapping.length; i < l; i++) {
+      value = this.mapping[i];
+      for (let j = 0; j < 8; j++) {
+        if((value >> j) & 0x1) { // is mapped
+          this.moveOctree(sourceIndex, destinationIndex);
+          destinationIndex += 33;
+        }
+        sourceIndex += 33;
+      }
+    }
+  }
 }
 
 
@@ -749,6 +738,14 @@ function getTextureColorAt(x: number, y: number, z: number, texture: Uint8Array)
   const index: number = x | (y << depth) | (z << (depth << 1));
   return new Uint8Array(texture.buffer, index * 4, 4);
 }
+
+// function generateRandom3DTexture(side: number, values: number[] = new Array(256).fill(null).map((a, i) => i)): Uint8Array {
+//   const data: Uint8Array = new Uint8Array(side * side * side * 4);
+//   for (let i = 0; i < data.length; i++) {
+//     data[i] = values[Math.floor(Math.random() * values.length)];
+//   }
+//   return data;
+// }
 
 function generateRandom3DTexture(side: number): Uint8Array {
   const data: Uint8Array = new Uint8Array(side * side * side * 4);
@@ -776,15 +773,16 @@ function generate3DTexture(side: number, callback: (x: number, y: number, z: num
 
 
 
-function testImport(texture: Uint8Array): void {
-  const tree = Octree.from3DTexture(texture);
-  // console.log(tree.data.join(', '));
-  // console.log('length:', tree.data.length);
-  // for(let i = 0; i < tree.data.length / 33; i++) {
-  //   console.log(tree.data.slice(i * 33, (i + 1) * 33).join(', '));
-  // }
-  //
-  // console.log('--->', tree.mappedChunk.join(', '));
+function testImport(name: string, texture: Uint8Array): void {
+  const tree = Octree.from3DTexture(texture); // .compact()
+  // tree.compactValues();
+  // tree.compactValues();
+  // tree.removeDuplicatedOctrees();
+  // tree.removeDuplicatedOctrees();
+
+  // logOctreeData(tree.data);
+  // tree.removeEmptyData();
+  // logOctreeData(tree.data);
 
   const side: number = tree.side;
   for(let x = 0; x < side; x++) {
@@ -800,6 +798,14 @@ function testImport(texture: Uint8Array): void {
       }
     }
   }
+
+  testCompact(name, tree);
+}
+
+function testCompact(name: string, tree: Octree): void {
+  const size1: number = tree.data.length;
+  const size2: number = tree.clone().compact().data.length;
+  console.log(`[${name}] compact performance: ${size1} -> ${size2} (${Math.round(size2 / size1 * 100)}%)`);
 }
 
 
@@ -854,31 +860,39 @@ function testOctree() {
     ...textureDepth2, ...textureDepth2, ...textureDepth2, ...textureDepth2
   ]);
 
-  const testTexture     = generate3DTexture(4, (x, y, z) => new Uint8Array([x, y, z, 0]));
-  const uniformTexture  = generate3DTexture(4, () => new Uint8Array([1, 1, 1, 123]));
-  const emptyTexture    = generate3DTexture(4, () => new Uint8Array([0, 0, 0, 0]));
+  const testTexture     = generate3DTexture(16, (x, y, z) => new Uint8Array([x, y, z, 0]));
+  const uniformTexture  = generate3DTexture(16, () => new Uint8Array([1, 1, 1, 123]));
+  const emptyTexture    = generate3DTexture(16, () => new Uint8Array([0, 0, 0, 0]));
 
   // const tree = Octree.from3DTexture(new Uint8Array(chunkDepth1));
-  testImport(textureDepth1);
-  testImport(textureDepth2);
-  testImport(textureDepth3);
-  testImport(testTexture);
-  testImport(uniformTexture);
-  testImport(emptyTexture);
-  testImport(generateRandom3DTexture(8));
+  testImport('textureDepth1', textureDepth1);
+  testImport('textureDepth2', textureDepth2);
+  testImport('textureDepth3', textureDepth3);
+  testImport('testTexture', testTexture);
+  testImport('uniformTexture', uniformTexture);
+  testImport('emptyTexture', emptyTexture);
+  testImport('generateRandom3DTexture', generateRandom3DTexture(32));
 
-  // from3DTextureTime(generateRandom3DTexture(64));
-  // readAllTime(Octree.from3DTexture(generateRandom3DTexture(32)));
+  from3DTextureTime(generateRandom3DTexture(64));
+  readAllTime(Octree.from3DTexture(generateRandom3DTexture(64)));
 
 
   let tree = Octree.from3DTexture(textureDepth3);
-  // tree.removeDuplicatedOctrees();
-  // console.log('-----------');
-  // tree.removeDuplicatedOctrees();
-  // console.log('-----------');
-  tree = tree.compact();
-  // tree = tree.compact();
+  // let tree = Octree.from3DTexture(uniformTexture);
+  // tree.compactValues();
+  // tree.compactValues();
+  // console.log(tree.mapping.join(', '));
+  tree.removeDuplicatedOctrees();
+  tree.removeEmptyData();
 
+  // tree.removeDuplicatedOctrees();
+  // console.log('-----------');
+  // tree.removeDuplicatedOctrees();
+  // console.log('-----------');
+  // tree = tree.compact();
+  // tree = tree.compact();
+  // tree = tree.compact();
+  // tree = tree.compact();
 
 
   // tree.setColorAt(0, 0, 0, new Uint8Array([1, 1, 1, 1]));
@@ -887,6 +901,7 @@ function testOctree() {
   // console.log('---');
   // tree.setColorAt(1, 0, 2, new Uint8Array([3, 3, 3, 3]));
 
+  console.log(tree.data.length);
   console.log(tree.data.join(', '));
 
   // console.log(tree.side);
